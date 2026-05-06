@@ -165,13 +165,19 @@ export async function fetchOfertas(): Promise<Oferta[]> {
     .from('ofertas')
     .select('*, empresa:empresas(*), cv_enviado:cvs(*)')
     .order('actualizado_en', { ascending: false });
-  if (error) throw error;
+  if (error) {
+    console.warn('[jobit] fetchOfertas error (returning empty):', error.message);
+    return [];
+  }
   return (data ?? []).map((row) => mapOferta(row as Record<string, unknown>));
 }
 
 export async function fetchEmpresas(): Promise<Empresa[]> {
   const { data, error } = await supabase.from('empresas').select('*');
-  if (error) throw error;
+  if (error) {
+    console.warn('[jobit] fetchEmpresas error (returning empty):', error.message);
+    return [];
+  }
   return (data ?? []).map((row) => mapEmpresa(row as Record<string, unknown>));
 }
 
@@ -179,20 +185,52 @@ export async function fetchContactos(): Promise<Contacto[]> {
   const { data, error } = await supabase
     .from('contactos')
     .select('*, empresa:empresas(*)');
-  if (error) throw error;
+  if (error) {
+    console.warn('[jobit] fetchContactos error (returning empty):', error.message);
+    return [];
+  }
   return (data ?? []).map((row) => mapContacto(row as Record<string, unknown>));
 }
 
 export async function fetchCVs(): Promise<CvItem[]> {
   const { data, error } = await supabase.from('cvs').select('*');
-  if (error) throw error;
+  if (error) {
+    console.warn('[jobit] fetchCVs error (returning empty):', error.message);
+    return [];
+  }
   return (data ?? []).map((row) => mapCV(row as Record<string, unknown>));
 }
 
-export async function fetchPerfil(): Promise<PerfilUsuario | null> {
-  const { data, error } = await supabase.from('perfil_usuario').select('*').limit(1).single();
-  if (error) return null;
-  if (!data) return null;
+const DEFAULT_PERFIL: PerfilUsuario = {
+  nombre: '',
+  apellido: '',
+  email: '',
+  telefono: '',
+  linkedin: '',
+  rol: '',
+  empresa: '',
+  senioridad: '',
+  aniosExp: 0,
+  pais: '',
+  ciudad: '',
+  salarioBruto: 0,
+  salarioNeto: 0,
+  moneda: 'USD',
+  modalidad: 'remoto',
+  pretensionBruta: 0,
+  pretensionNeta: 0,
+  stack: [],
+  certificaciones: [],
+};
+
+export async function fetchPerfil(): Promise<PerfilUsuario> {
+  // .single() errors with PGRST116 when no rows — treat that as "new user, return default"
+  const { data, error } = await supabase.from('perfil_usuario').select('*').limit(1).maybeSingle();
+  if (error) {
+    console.warn('[jobit] fetchPerfil error (returning default):', error.message);
+    return DEFAULT_PERFIL;
+  }
+  if (!data) return DEFAULT_PERFIL;
   return mapPerfil(data as Record<string, unknown>);
 }
 
@@ -202,7 +240,10 @@ export async function fetchActividadLog(): Promise<ActivityItem[]> {
     .select('*')
     .order('created_at', { ascending: false })
     .limit(50);
-  if (error) throw error;
+  if (error) {
+    console.warn('[jobit] fetchActividadLog error (returning empty):', error.message);
+    return [];
+  }
   return (data ?? []).map((row) => mapActividadLog(row as Record<string, unknown>));
 }
 
@@ -211,7 +252,10 @@ export async function fetchNotas(): Promise<NotaItem[]> {
     .from('notas')
     .select('*')
     .order('updated_at', { ascending: false });
-  if (error) throw error;
+  if (error) {
+    console.warn('[jobit] fetchNotas error (returning empty):', error.message);
+    return [];
+  }
   return (data ?? []).map((row) => mapNota(row as Record<string, unknown>));
 }
 
@@ -221,7 +265,10 @@ export async function fetchRoadmapPasos(ofertaId: string): Promise<PasoRoadmap[]
     .select('*')
     .eq('oferta_id', ofertaId)
     .order('orden', { ascending: true });
-  if (error) throw error;
+  if (error) {
+    console.warn('[jobit] fetchRoadmapPasos error (returning empty):', error.message);
+    return [];
+  }
   return (data ?? []).map((row) => mapRoadmapPaso(row as Record<string, unknown>));
 }
 
@@ -230,7 +277,10 @@ export async function fetchAllRoadmapPasos(): Promise<Record<string, PasoRoadmap
     .from('roadmap_pasos')
     .select('*')
     .order('orden', { ascending: true });
-  if (error) throw error;
+  if (error) {
+    console.warn('[jobit] fetchAllRoadmapPasos error (returning empty):', error.message);
+    return {};
+  }
   const result: Record<string, PasoRoadmap[]> = {};
   for (const row of data ?? []) {
     const r = row as Record<string, unknown>;
@@ -246,7 +296,10 @@ export async function fetchOfertaContactos(ofertaId: string): Promise<string[]> 
     .from('oferta_contactos')
     .select('contacto_id')
     .eq('oferta_id', ofertaId);
-  if (error) throw error;
+  if (error) {
+    console.warn('[jobit] fetchOfertaContactos error (returning empty):', error.message);
+    return [];
+  }
   return (data ?? []).map((row) => (row as Record<string, unknown>).contacto_id as string);
 }
 
@@ -254,7 +307,10 @@ export async function fetchAllOfertaContactos(): Promise<Record<string, string[]
   const { data, error } = await supabase
     .from('oferta_contactos')
     .select('oferta_id, contacto_id');
-  if (error) throw error;
+  if (error) {
+    console.warn('[jobit] fetchAllOfertaContactos error (returning empty):', error.message);
+    return {};
+  }
   const result: Record<string, string[]> = {};
   for (const row of data ?? []) {
     const r = row as Record<string, unknown>;

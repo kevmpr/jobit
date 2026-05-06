@@ -1,4 +1,33 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, Component } from 'react';
+
+// ---- Error Boundary ----
+interface EBState { error: Error | null }
+class ErrorBoundary extends Component<{ children: React.ReactNode }, EBState> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error: Error): EBState { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 40, color: 'white', background: '#0f172a', minHeight: '100vh' }}>
+          <h2 style={{ marginBottom: 12 }}>Error al cargar la aplicación</h2>
+          <pre style={{ color: '#f87171', fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+            {this.state.error.message}
+          </pre>
+          <button
+            onClick={() => window.location.reload()}
+            style={{ marginTop: 16, padding: '8px 16px', background: '#4f46e5', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer' }}
+          >
+            Recargar
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import { AppCtx } from './jobit/store';
 import type { AppState } from './jobit/store';
 import type { Page, Toast, Tweaks, Oferta, EstadoOferta, Empresa, Contacto, CvItem, PerfilUsuario, ActivityItem, NotaItem, PasoRoadmap } from './jobit/types';
@@ -243,23 +272,25 @@ export default function JobitApp() {
   };
 
   return (
-    <AppCtx.Provider value={ctx}>
-      <div
-        className="app"
-        data-density={tweaks.density}
-        data-sidebar={tweaks.sidebar}
-        data-card={tweaks.card}
-      >
-        <Sidebar onNewOferta={() => setNuevaOpen(true)} />
-        <div className="main-area">
-          <Topbar />
-          <div style={{ flex: 1, overflow: page === 'notas' ? 'hidden' : 'auto', display: 'flex', flexDirection: 'column' }}>
-            {renderPage()}
+    <ErrorBoundary>
+      <AppCtx.Provider value={ctx}>
+        <div
+          className="app"
+          data-density={tweaks.density}
+          data-sidebar={tweaks.sidebar}
+          data-card={tweaks.card}
+        >
+          <Sidebar onNewOferta={() => setNuevaOpen(true)} />
+          <div className="main-area">
+            <Topbar />
+            <div style={{ flex: 1, overflow: page === 'notas' ? 'hidden' : 'auto', display: 'flex', flexDirection: 'column' }}>
+              {renderPage()}
+            </div>
           </div>
         </div>
-      </div>
-      <NuevaOfertaModal />
-      <ToastContainer />
-    </AppCtx.Provider>
+        <NuevaOfertaModal />
+        <ToastContainer />
+      </AppCtx.Provider>
+    </ErrorBoundary>
   );
 }
