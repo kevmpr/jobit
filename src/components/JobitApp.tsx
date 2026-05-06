@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { AppCtx } from './jobit/store';
 import type { AppState } from './jobit/store';
 import type { Page, Toast, Tweaks, Oferta, EstadoOferta, Empresa, Contacto, CvItem, PerfilUsuario, ActivityItem, NotaItem, PasoRoadmap } from './jobit/types';
+import type { User } from '@supabase/supabase-js';
 import {
   fetchOfertas,
   fetchEmpresas,
@@ -15,6 +16,7 @@ import {
   moveOferta as dbMoveOferta,
   addOferta as dbAddOferta,
 } from '../lib/db';
+import { supabase } from '../lib/supabase';
 import { Sidebar, Topbar } from './jobit/Shell';
 import { Dashboard } from './jobit/Dashboard';
 import { Ofertas } from './jobit/Ofertas';
@@ -35,6 +37,7 @@ export default function JobitApp() {
     hue: 250, density: 'comfortable', sidebar: 'expanded', roadmap: 'vertical', card: 'default', font: 'geist',
   });
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // Supabase data state
   const [ofertas, setOfertas] = useState<Oferta[]>([]);
@@ -48,6 +51,17 @@ export default function JobitApp() {
   const [ofertaContactos, setOfertaContactos] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Load current auth user
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUser(user);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Load all data on mount
   useEffect(() => {
@@ -152,12 +166,12 @@ export default function JobitApp() {
     // Optimistic update
     setOfertas((prev) => [oferta, ...prev]);
     try {
-      await dbAddOferta(oferta);
+      await dbAddOferta(oferta, currentUser?.id);
     } catch {
       // Revert on error
       setOfertas((prev) => prev.filter((o) => o.id !== oferta.id));
     }
-  }, []);
+  }, [currentUser]);
 
   const showToast = useCallback((message: string, variant: Toast['variant']) => {
     const id = `toast-${Date.now()}`;
@@ -202,12 +216,14 @@ export default function JobitApp() {
     addOferta: (oferta: Oferta) => Promise<void>;
     showToast: (message: string, variant: Toast['variant']) => void;
     dismissToast: (id: string) => void;
+    currentUser: User | null;
   } = {
     page, ofertaId, ofertasView, dark, nuevaOpen, tweaks,
     ofertas, empresas, contactos, cvs, perfil, actividadLog, notas, roadmapPasos, ofertaContactos,
     toasts, loading, error,
     setPage, setOfertasView, toggleDark, setNuevaOpen, setTweaks,
     moveOferta, addOferta, showToast, dismissToast,
+    currentUser,
   };
 
   const renderPage = () => {

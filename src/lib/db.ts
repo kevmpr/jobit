@@ -293,7 +293,7 @@ export async function moveOferta(id: string, nuevoEstado: string): Promise<void>
   if (error) throw error;
 }
 
-export async function addOferta(data: Partial<Oferta>): Promise<void> {
+export async function addOferta(data: Partial<Oferta>, userId?: string): Promise<void> {
   const newId = 'of-' + Date.now();
   const { error } = await supabase.from('ofertas').insert({
     id: newId,
@@ -317,6 +317,7 @@ export async function addOferta(data: Partial<Oferta>): Promise<void> {
     proxima_fecha: data.proximaFecha ?? null,
     scoring: {},
     actualizado_en: new Date().toISOString().slice(0, 10),
+    user_id: userId ?? null,
   });
   if (error) throw error;
 }

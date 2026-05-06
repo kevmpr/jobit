@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react';
+import type { User } from '@supabase/supabase-js';
 import type { Page, Toast, Tweaks, Oferta, EstadoOferta, Empresa, Contacto, CvItem, PerfilUsuario, ActivityItem, NotaItem, PasoRoadmap } from './types';
 
 export interface AppState {
@@ -20,6 +21,7 @@ export interface AppState {
   toasts: Toast[];
   loading: boolean;
   error: string | null;
+  currentUser: User | null;
 }
 
 export interface AppActions {

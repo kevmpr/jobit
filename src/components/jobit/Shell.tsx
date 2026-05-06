@@ -2,6 +2,7 @@ import React from 'react';
 import { Icon } from './icons';
 import { useApp } from './store';
 import type { Page } from './types';
+import { supabase } from '../../lib/supabase';
 
 const navItems: Array<{ page: Page; icon: string; label: string; badge?: string }> = [
   { page: 'dashboard', icon: 'dashboard', label: 'Dashboard' },
@@ -23,7 +24,27 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onNewOferta }: SidebarProps) {
-  const { page, dark, setPage, toggleDark } = useApp();
+  const { page, dark, setPage, toggleDark, currentUser } = useApp();
+
+  function handleLogout() {
+    supabase.auth.signOut().then(() => {
+      window.location.href = '/login';
+    });
+  }
+
+  const userDisplayName = currentUser?.user_metadata?.['full_name'] as string | undefined
+    ?? currentUser?.user_metadata?.['name'] as string | undefined
+    ?? currentUser?.email?.split('@')[0]
+    ?? 'Usuario';
+
+  const userInitials = userDisplayName
+    .split(' ')
+    .slice(0, 2)
+    .map((w: string) => w[0] ?? '')
+    .join('')
+    .toUpperCase() || 'U';
+
+  const userEmail = currentUser?.email ?? '';
 
   return (
     <aside className="sidebar">
@@ -74,12 +95,31 @@ export function Sidebar({ onNewOferta }: SidebarProps) {
             <div className="toggle-thumb" />
           </div>
         </button>
-        <div className="user-card">
-          <div className="user-avatar">KA</div>
-          <div className="user-info">
-            <div className="user-name">Kevin Aguilar</div>
-            <div className="user-role">Senior SWE</div>
+        <div className="user-card" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="user-avatar">{userInitials}</div>
+          <div className="user-info" style={{ flex: 1, minWidth: 0 }}>
+            <div className="user-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userDisplayName}</div>
+            <div className="user-role" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userEmail}</div>
           </div>
+          <button
+            onClick={handleLogout}
+            title="Cerrar sesión"
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--text-subtle)',
+              display: 'flex',
+              alignItems: 'center',
+              padding: '4px',
+              borderRadius: 6,
+              flexShrink: 0,
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-danger)'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-subtle)'; }}
+          >
+            <Icon name="logout" size={15} />
+          </button>
         </div>
       </div>
     </aside>
