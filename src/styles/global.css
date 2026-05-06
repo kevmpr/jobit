@@ -1766,3 +1766,7 @@ dl.info-grid dd {
 .toggle-switch.on .toggle-thumb {
   transform: translateX(14px);
 }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

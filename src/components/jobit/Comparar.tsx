@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Icon } from './icons';
 import { useApp } from './store';
-import { empresas, estadoLabels, scoringDimensions } from './data';
+import { estadoLabels } from './data';
 import type { Oferta } from './types';
 
 const COMPARE_IDS = ['o1', 'o3', 'o5'];
@@ -17,7 +17,7 @@ const dimensions = [
   { key: 'estabilidad', label: 'Estabilidad' },
 ];
 
-function RadarChart({ ofertas }: { ofertas: Oferta[] }) {
+function RadarChart({ ofertas, empresas }: { ofertas: Oferta[]; empresas: Record<string, import('./types').Empresa> }) {
   const cx = 200, cy = 200, r = 160;
   const rings = [0.2, 0.4, 0.6, 0.8, 1.0];
   const n = dimensions.length;
@@ -124,7 +124,7 @@ function RadarChart({ ofertas }: { ofertas: Oferta[] }) {
   );
 }
 
-function TablaView({ ofertas }: { ofertas: Oferta[] }) {
+function TablaView({ ofertas, empresas }: { ofertas: Oferta[]; empresas: Record<string, import('./types').Empresa> }) {
   const rows = [
     { label: 'Salario bruto', getValue: (o: Oferta) => o.salarioBrutoOfrecido ? `${o.moneda} ${o.salarioBrutoOfrecido.toLocaleString()}` : '—' },
     { label: 'Salario neto', getValue: (o: Oferta) => o.salarioNetoOfrecido ? `${o.moneda} ${o.salarioNetoOfrecido.toLocaleString()}` : '—' },
@@ -182,7 +182,7 @@ function TablaView({ ofertas }: { ofertas: Oferta[] }) {
   );
 }
 
-function CardsView({ ofertas }: { ofertas: Oferta[] }) {
+function CardsView({ ofertas, empresas }: { ofertas: Oferta[]; empresas: Record<string, import('./types').Empresa> }) {
   const bestScorer = ofertas.reduce((best, o) => o.scoring > best.scoring ? o : best, ofertas[0]);
 
   return (
@@ -249,7 +249,7 @@ function CardsView({ ofertas }: { ofertas: Oferta[] }) {
 }
 
 export function Comparar() {
-  const { ofertas } = useApp();
+  const { ofertas, empresas } = useApp();
   const [viewMode, setViewMode] = useState<'cards' | 'tabla' | 'radar'>('cards');
   const compareOfertas = COMPARE_IDS.map((id) => ofertas.find((o) => o.id === id)).filter((o): o is Oferta => o !== undefined);
 
@@ -283,11 +283,11 @@ export function Comparar() {
         </span>
       </div>
 
-      {viewMode === 'cards' && <CardsView ofertas={compareOfertas} />}
-      {viewMode === 'tabla' && <TablaView ofertas={compareOfertas} />}
+      {viewMode === 'cards' && <CardsView ofertas={compareOfertas} empresas={empresas} />}
+      {viewMode === 'tabla' && <TablaView ofertas={compareOfertas} empresas={empresas} />}
       {viewMode === 'radar' && (
         <div className="card" style={{ padding: 24 }}>
-          <RadarChart ofertas={compareOfertas} />
+          <RadarChart ofertas={compareOfertas} empresas={empresas} />
         </div>
       )}
     </div>

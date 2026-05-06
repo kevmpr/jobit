@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Icon } from './icons';
 import { useApp } from './store';
-import { empresas, pasosMicrosoft, contactos, scoringDimensions, estadoLabels, kanbanCols, estadoColors, notas } from './data';
+import { scoringDimensions, estadoLabels, kanbanCols, estadoColors } from './data';
 import type { ScoringDimension, PasoRoadmap } from './types';
 
 function LogoBubble({ empresa, size = 56 }: { empresa: string; size?: number }) {
+  const { empresas } = useApp();
   const emp = empresas[empresa];
   if (!emp) return <div style={{ width: size, height: size, borderRadius: 12, background: 'var(--surface-muted)' }} />;
   return (
@@ -18,11 +19,11 @@ function LogoBubble({ empresa, size = 56 }: { empresa: string; size?: number }) 
 }
 
 function DetallesTab({ ofertaId }: { ofertaId: string }) {
-  const { ofertas } = useApp();
+  const { ofertas, empresas, contactos } = useApp();
   const oferta = ofertas.find((o) => o.id === ofertaId);
   if (!oferta) return null;
   const emp = empresas[oferta.empresa];
-  const ofertaContactos = oferta.contactos.map((id) => contactos[id]).filter(Boolean);
+  const ofertaContactos = oferta.contactos.map((id) => contactos[id]).filter((c): c is NonNullable<typeof c> => c != null);
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20 }}>
@@ -187,7 +188,9 @@ function DetallesTab({ ofertaId }: { ofertaId: string }) {
 }
 
 function RoadmapTab({ ofertaId, mode }: { ofertaId: string; mode: 'vertical' | 'stepper' | 'kanban' }) {
-  const steps: PasoRoadmap[] = ofertaId === 'o1' ? pasosMicrosoft : [
+  const { roadmapPasos } = useApp();
+  const dbSteps = roadmapPasos[ofertaId];
+  const steps: PasoRoadmap[] = dbSteps && dbSteps.length > 0 ? dbSteps : [
     { id: 'r1', titulo: 'Aplicación enviada', fecha: null, descripcion: 'CV enviado para el proceso.', estado: 'completado' },
     { id: 'r2', titulo: 'Screening HR', fecha: null, descripcion: 'Llamada inicial con RRHH.', estado: 'pendiente' },
     { id: 'r3', titulo: 'Entrevista técnica', fecha: null, descripcion: 'Evaluación técnica del stack.', estado: 'pendiente' },
@@ -377,10 +380,10 @@ function ScoringTab({ ofertaId }: { ofertaId: string }) {
 }
 
 function ContactosTab({ ofertaId }: { ofertaId: string }) {
-  const { ofertas } = useApp();
+  const { ofertas, contactos, empresas } = useApp();
   const oferta = ofertas.find((o) => o.id === ofertaId);
   if (!oferta) return null;
-  const ofertaContactos = oferta.contactos.map((id) => contactos[id]).filter(Boolean);
+  const ofertaContactos = oferta.contactos.map((id) => contactos[id]).filter((c): c is NonNullable<typeof c> => c != null);
 
   if (ofertaContactos.length === 0) {
     return <div style={{ color: 'var(--text-subtle)', padding: 20, textAlign: 'center' }}>No hay contactos registrados</div>;
@@ -437,6 +440,7 @@ function AdjuntosTab() {
 }
 
 function NotasTab({ ofertaId }: { ofertaId: string }) {
+  const { notas } = useApp();
   const relatedNota = notas.find((n) => n.ofertaId === ofertaId);
   return (
     <div className="card" style={{ padding: 20 }}>
@@ -457,7 +461,7 @@ function NotasTab({ ofertaId }: { ofertaId: string }) {
 }
 
 export function OfertaDetail() {
-  const { ofertaId, ofertas, setPage, tweaks, showToast, moveOferta } = useApp();
+  const { ofertaId, ofertas, empresas, setPage, tweaks, showToast, moveOferta } = useApp();
   const oferta = ofertas.find((o) => o.id === ofertaId);
   const [tab, setTab] = useState<'detalles' | 'roadmap' | 'contactos' | 'adjuntos' | 'scoring' | 'notas'>('detalles');
   const [showEstadoDropdown, setShowEstadoDropdown] = useState(false);

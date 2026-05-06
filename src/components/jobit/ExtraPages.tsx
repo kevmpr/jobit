@@ -1,10 +1,17 @@
 import React, { useState } from 'react';
 import { Icon } from './icons';
 import { useApp } from './store';
-import { empresas, contactos, cvs, notas as notasData, perfilUsuario } from './data';
 
 /* ---- PERFIL ---- */
 export function Perfil() {
+  const { perfil } = useApp();
+  const perfilUsuario = perfil ?? {
+    nombre: '', apellido: '', email: '', telefono: '', linkedin: '',
+    rol: '', empresa: '', senioridad: '', aniosExp: 0,
+    pais: '', ciudad: '', salarioBruto: 0, salarioNeto: 0,
+    moneda: 'USD' as const, modalidad: 'remoto' as const,
+    pretensionBruta: 0, pretensionNeta: 0, stack: [], certificaciones: [],
+  };
   const [stack, setStack] = useState(perfilUsuario.stack);
 
   const removeStack = (s: string) => setStack(stack.filter((x) => x !== s));
@@ -154,6 +161,7 @@ export function Perfil() {
 
 /* ---- CVs ---- */
 export function CVs() {
+  const { cvs } = useApp();
   const [dragOver, setDragOver] = useState(false);
 
   return (
@@ -208,6 +216,7 @@ export function CVs() {
 
 /* ---- CONTACTOS ---- */
 export function Contactos() {
+  const { contactos, empresas } = useApp();
   const contactoList = Object.values(contactos);
 
   return (
@@ -252,7 +261,7 @@ export function Contactos() {
 
 /* ---- EMPRESAS ---- */
 export function Empresas() {
-  const { ofertas, setPage } = useApp();
+  const { ofertas, setPage, empresas } = useApp();
   const empresaList = Object.values(empresas);
 
   return (
@@ -294,10 +303,12 @@ export function Empresas() {
 
 /* ---- NOTAS ---- */
 export function Notas() {
+  const { notas: notasData } = useApp();
+  const firstNota = notasData[0];
   const [search, setSearch] = useState('');
-  const [activeId, setActiveId] = useState(notasData[0].id);
-  const [editTitle, setEditTitle] = useState(notasData[0].titulo);
-  const [editContent, setEditContent] = useState(notasData[0].contenido);
+  const [activeId, setActiveId] = useState(firstNota?.id ?? '');
+  const [editTitle, setEditTitle] = useState(firstNota?.titulo ?? '');
+  const [editContent, setEditContent] = useState(firstNota?.contenido ?? '');
 
   const filtered = notasData.filter((n) =>
     n.titulo.toLowerCase().includes(search.toLowerCase()) ||

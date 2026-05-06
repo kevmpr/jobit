@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Icon } from './icons';
 import { useApp } from './store';
-import { estadoLabels, estadoColors, activityLog, notas } from './data';
+import { estadoLabels, estadoColors } from './data';
 import type { EstadoOferta } from './types';
 
 function MetricCard({ label, value, delta, deltaDir }: {
@@ -142,7 +142,7 @@ function ActivityBarChart() {
 }
 
 export function Dashboard() {
-  const { ofertas, setPage } = useApp();
+  const { ofertas, actividadLog, empresas, setPage } = useApp();
 
   const activeOfertas = ofertas.filter((o) => !['rechazada_empresa', 'ghosted'].includes(o.estado));
   const inProcess = ofertas.filter((o) => o.estado === 'en_proceso');
@@ -238,7 +238,7 @@ export function Dashboard() {
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.titulo}</div>
-                  <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>{o.empresa}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>{empresas[o.empresa]?.nombre ?? o.empresa}</div>
                 </div>
                 <span className={`badge badge-${o.estado}`} style={{ flexShrink: 0 }}>
                   {estadoLabels[o.estado]}

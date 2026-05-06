@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Icon } from './icons';
 import { useApp } from './store';
-import { empresas, kanbanCols, estadoLabels, estadoColors } from './data';
+import { kanbanCols, estadoLabels, estadoColors } from './data';
 import type { Oferta, EstadoOferta } from './types';
 
 function LogoBubble({ empresa, size = 32 }: { empresa: string; size?: number }) {
+  const { empresas } = useApp();
   const emp = empresas[empresa];
   if (!emp) return <div style={{ width: size, height: size, borderRadius: 8, background: 'var(--surface-muted)' }} />;
   return (
@@ -18,6 +19,7 @@ function LogoBubble({ empresa, size = 32 }: { empresa: string; size?: number }) 
 }
 
 function OfertaCard({ oferta, onClick }: { oferta: Oferta; onClick: () => void }) {
+  const { empresas } = useApp();
   const pct = oferta.pasosTotales > 0 ? (oferta.pasoActual / oferta.pasosTotales) * 100 : 0;
   return (
     <div className="card" style={{ padding: 16, cursor: 'pointer', transition: 'box-shadow 0.15s' }}
@@ -64,7 +66,7 @@ function OfertaCard({ oferta, onClick }: { oferta: Oferta; onClick: () => void }
 
 function KanbanCard({ oferta, onDragStart }: { oferta: Oferta; onDragStart: (id: string) => void }) {
   const pct = oferta.pasosTotales > 0 ? (oferta.pasoActual / oferta.pasosTotales) * 100 : 0;
-  const { setPage } = useApp();
+  const { setPage, empresas } = useApp();
 
   return (
     <div
@@ -157,7 +159,7 @@ function KanbanView() {
 }
 
 function ListView() {
-  const { ofertas, setPage } = useApp();
+  const { ofertas, setPage, empresas } = useApp();
   return (
     <div className="card" style={{ overflow: 'hidden' }}>
       <table className="list-table">
