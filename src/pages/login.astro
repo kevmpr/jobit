@@ -1,8 +1,62 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import LoginPage from '../components/LoginPage';
-import '../styles/global.css';
 ---
 <Layout title="Jobit — Iniciar sesión">
-  <LoginPage client:only="react" />
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="login-title">Jobit</div>
+        <div class="login-sub">Tu pipeline de búsqueda laboral</div>
+      </div>
+      <a href="/api/auth/login" class="login-btn">
+        <svg width="20" height="20" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+          <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+          <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+          <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+        </svg>
+        Iniciar sesión con Microsoft
+      </a>
+    </div>
+  </div>
 </Layout>
+
+<style>
+  .login-wrap {
+    min-height: 100vh;
+    background: #0a0f1e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Geist', system-ui, sans-serif;
+  }
+  .login-card {
+    text-align: center;
+    padding: 48px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    max-width: 400px;
+    width: 100%;
+  }
+  .login-brand { margin-bottom: 32px; }
+  .login-title { font-size: 32px; font-weight: 700; color: white; margin-bottom: 8px; }
+  .login-sub { font-size: 14px; color: rgba(255,255,255,0.5); }
+  .login-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 24px;
+    background: oklch(0.52 0.20 250);
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .login-btn:hover { opacity: 0.9; }
+</style>
