@@ -1,23 +1,8 @@
 ---
-import { createServerClient, parseCookieHeader } from '@supabase/ssr';
 import Layout from '../layouts/Layout.astro';
 import JobitApp from '../components/JobitApp';
 
-const supabase = createServerClient(
-  import.meta.env.PUBLIC_SUPABASE_URL,
-  import.meta.env.PUBLIC_SUPABASE_ANON_KEY,
-  {
-    cookies: {
-      getAll() { return parseCookieHeader(Astro.request.headers.get('Cookie') ?? ''); },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value, options }) =>
-          Astro.cookies.set(name, value, options)
-        );
-      },
-    },
-  }
-);
-const { data: { session } } = await supabase.auth.getSession();
+const session = Astro.locals.session;
 if (!session) return Astro.redirect('/login');
 ---
 <Layout title="Jobit — Tu búsqueda laboral, ordenada">
