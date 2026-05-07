@@ -1,18 +1,6 @@
-import { supabase } from '../lib/supabase';
-
 export default function LoginPage() {
-  const handleLogin = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    const btn = e.currentTarget;
-    btn.disabled = true;
-    btn.textContent = 'Redirigiendo...';
-
-    await supabase.auth.signInWithOAuth({
-      provider: 'azure',
-      options: {
-        scopes: 'email profile openid',
-        redirectTo: window.location.origin + '/auth/callback',
-      },
-    });
+  const handleLogin = () => {
+    window.location.href = '/api/auth/login';
   };
 
   return (

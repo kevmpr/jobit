@@ -1,7 +1,32 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import AuthCallback from '../../components/AuthCallback';
+import { createServerClient, parseCookieHeader } from '@supabase/ssr';
+
+const code = Astro.url.searchParams.get('code');
+
+if (code) {
+  const supabase = createServerClient(
+    import.meta.env.PUBLIC_SUPABASE_URL,
+    import.meta.env.PUBLIC_SUPABASE_ANON_KEY,
+    {
+      cookies: {
+        getAll() {
+          return parseCookieHeader(Astro.request.headers.get('Cookie') ?? '');
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            Astro.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
+
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error) {
+    console.error('exchangeCodeForSession error:', error.message);
+    return Astro.redirect('/login?error=1');
+  }
+}
+
+return Astro.redirect('/');
 ---
-<Layout title="Jobit">
-  <AuthCallback client:load />
-</Layout>

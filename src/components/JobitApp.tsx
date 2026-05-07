@@ -81,14 +81,10 @@ export default function JobitApp() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load current auth user — redirect to /login if unauthenticated
+  // Sync auth user — redirect to /login on sign-out (index.astro handles unauthenticated access)
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) {
-        window.location.href = '/login';
-        return;
-      }
-      setCurrentUser(user);
+      if (user) setCurrentUser(user);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session?.user) {
