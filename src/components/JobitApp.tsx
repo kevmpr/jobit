@@ -81,17 +81,30 @@ export default function JobitApp() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Sync auth user — redirect to /login on sign-out (index.astro handles unauthenticated access)
+  // Sync auth user — redirect to /login only after a definitive no-session confirmation.
+  // onAuthStateChange fires INITIAL_SESSION with null before cookies are resolved on
+  // first hydration after OAuth redirect, so we must NOT redirect on that event alone.
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setCurrentUser(user);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session?.user) {
+    // Authoritative session check: getSession() reads cookies synchronously in the
+    // browser client, so it resolves the session even on the very first hydration.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
         window.location.href = '/login';
         return;
       }
       setCurrentUser(session.user);
+    });
+
+    // Only react to explicit sign-out events. INITIAL_SESSION / TOKEN_REFRESHED /
+    // SIGNED_IN events are handled by the getSession() call above on mount.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        window.location.href = '/login';
+        return;
+      }
+      if (session?.user) {
+        setCurrentUser(session.user);
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
