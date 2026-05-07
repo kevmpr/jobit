@@ -195,7 +195,7 @@ export function Dashboard() {
             <span className="card-title">Actividad reciente</span>
           </div>
           <div className="card-body" style={{ padding: '12px 20px' }}>
-            {activityLog.slice(0, 7).map((item) => (
+            {actividadLog.slice(0, 7).map((item) => (
               <div key={item.id} className="activity-item">
                 <div className="activity-dot" style={{
                   background: item.tipo === 'rechazo' ? 'oklch(0.58 0.22 25)'
