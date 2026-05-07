@@ -9,6 +9,9 @@ export default defineConfig({
   integrations: [react()],
   vite: {
     plugins: [tailwindcss()],
+    optimizeDeps: {
+      include: ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime'],
+    },
     resolve: {
       dedupe: ['react', 'react-dom', 'react/jsx-runtime'],
     },
