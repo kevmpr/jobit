@@ -3,10 +3,8 @@ import { createServerClient, parseCookieHeader } from '@supabase/ssr';
 
 const code = Astro.url.searchParams.get('code');
 const allCookies = parseCookieHeader(Astro.request.headers.get('Cookie') ?? '');
-const cookieNames = allCookies.map((c: any) => c.name).join(', ');
-
-console.log('[callback] code present:', !!code);
-console.log('[callback] cookies received:', cookieNames || 'NONE');
+const verifierCookie = allCookies.find((c: any) => c.name.includes('code-verifier'));
+console.log(`[callback] code=${!!code} cookies=${allCookies.map((c: any) => c.name).join(',')} verifier=${verifierCookie ? 'FOUND' : 'MISSING'}`);
 
 if (code) {
   const supabase = createServerClient(

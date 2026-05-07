@@ -3,6 +3,9 @@ import Layout from '../layouts/Layout.astro';
 import JobitApp from '../components/JobitApp';
 import { createServerClient, parseCookieHeader } from '@supabase/ssr';
 
+const allCookies = parseCookieHeader(Astro.request.headers.get('Cookie') ?? '');
+console.log('[index] cookies:', allCookies.map((c: any) => c.name).join(', ') || 'NONE');
+
 const supabase = createServerClient(
   import.meta.env.PUBLIC_SUPABASE_URL,
   import.meta.env.PUBLIC_SUPABASE_ANON_KEY,
@@ -12,7 +15,7 @@ const supabase = createServerClient(
         return parseCookieHeader(Astro.request.headers.get('Cookie') ?? '');
       },
       setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value, options }) =>
+        cookiesToSet.forEach(({ name, value, options }: any) =>
           Astro.cookies.set(name, value, options)
         );
       },
@@ -20,8 +23,10 @@ const supabase = createServerClient(
   }
 );
 
-const { data: { user } } = await supabase.auth.getUser();
-if (!user) return Astro.redirect('/login');
+const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+console.log('[index] session:', session ? `found (user: ${session.user.email})` : 'null', sessionError ? `error: ${sessionError.message}` : '');
+
+if (!session) return Astro.redirect('/login');
 ---
 <Layout title="Jobit">
   <JobitApp client:load />
