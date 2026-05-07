@@ -81,13 +81,21 @@ export default function JobitApp() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load current auth user
+  // Load current auth user — redirect to /login if unauthenticated
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) {
+        window.location.href = '/login';
+        return;
+      }
       setCurrentUser(user);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setCurrentUser(session?.user ?? null);
+      if (!session?.user) {
+        window.location.href = '/login';
+        return;
+      }
+      setCurrentUser(session.user);
     });
     return () => subscription.unsubscribe();
   }, []);

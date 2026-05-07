@@ -1,9 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import JobitApp from '../components/JobitApp';
-
-const session = Astro.locals.session;
-if (!session) return Astro.redirect('/login');
 ---
 <Layout title="Jobit — Tu búsqueda laboral, ordenada">
   <div id="root">
