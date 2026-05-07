@@ -1,25 +1,19 @@
-import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 
 export default function LoginPage() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const handleLogin = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    btn.textContent = 'Redirigiendo...';
 
-  async function handleSignIn() {
-    setLoading(true);
-    setError(null);
-    const { error: signInError } = await supabase.auth.signInWithOAuth({
+    await supabase.auth.signInWithOAuth({
       provider: 'azure',
       options: {
-        scopes: 'email',
+        scopes: 'email profile openid',
         redirectTo: window.location.origin + '/auth/callback',
       },
     });
-    if (signInError) {
-      setError(signInError.message);
-      setLoading(false);
-    }
-  }
+  };
 
   return (
     <div style={{
@@ -42,6 +36,7 @@ export default function LoginPage() {
         flexDirection: 'column',
         alignItems: 'center',
         gap: 0,
+        textAlign: 'center',
       }}>
         {/* Brand */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
@@ -68,24 +63,8 @@ export default function LoginPage() {
           Gestiona ofertas, contactos y CVs en un solo lugar.
         </p>
 
-        {error && (
-          <div style={{
-            width: '100%',
-            padding: '10px 14px',
-            background: 'var(--color-danger-soft)',
-            border: '1px solid var(--color-danger)',
-            borderRadius: 'var(--radius-sm)',
-            color: 'var(--color-danger)',
-            fontSize: 13,
-            marginBottom: 16,
-          }}>
-            {error}
-          </div>
-        )}
-
         <button
-          onClick={handleSignIn}
-          disabled={loading}
+          onClick={handleLogin}
           style={{
             width: '100%',
             display: 'flex',
@@ -93,43 +72,30 @@ export default function LoginPage() {
             justifyContent: 'center',
             gap: 10,
             padding: '11px 20px',
-            background: loading ? 'var(--surface-muted)' : 'var(--surface)',
+            background: 'var(--surface)',
             border: '1px solid var(--border-strong)',
             borderRadius: 'var(--radius-sm)',
             color: 'var(--text)',
             fontSize: 14,
             fontWeight: 500,
-            cursor: loading ? 'not-allowed' : 'pointer',
+            cursor: 'pointer',
             transition: 'background 0.15s, border-color 0.15s',
             fontFamily: 'var(--font-sans)',
           }}
           onMouseEnter={(e) => {
-            if (!loading) (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-muted)';
+            (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-muted)';
           }}
           onMouseLeave={(e) => {
-            if (!loading) (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface)';
+            (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface)';
           }}
         >
-          {loading ? (
-            <span style={{
-              width: 18,
-              height: 18,
-              border: '2px solid var(--border)',
-              borderTopColor: 'var(--color-brand)',
-              borderRadius: '50%',
-              display: 'inline-block',
-              animation: 'spin 0.8s linear infinite',
-              flexShrink: 0,
-            }} />
-          ) : (
-            <svg width="18" height="18" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-              <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
-              <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
-              <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
-              <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
-            </svg>
-          )}
-          {loading ? 'Redirigiendo…' : 'Iniciar sesión con Microsoft'}
+          <svg width="18" height="18" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+            <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+            <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
+            <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
+            <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+          </svg>
+          Iniciar sesión con Microsoft
         </button>
 
         <p style={{ marginTop: 24, fontSize: 12, color: 'var(--text-subtle)', textAlign: 'center' }}>
