@@ -13,6 +13,7 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
           return parseCookieHeader(request.headers.get('Cookie') ?? '');
         },
         setAll(cookiesToSet) {
+          console.log('[login] setting cookies:', cookiesToSet.map(c => c.name).join(', '));
           cookiesToSet.forEach(({ name, value, options }) =>
             cookies.set(name, value, options)
           );

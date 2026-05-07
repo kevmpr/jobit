@@ -2,6 +2,11 @@
 import { createServerClient, parseCookieHeader } from '@supabase/ssr';
 
 const code = Astro.url.searchParams.get('code');
+const allCookies = parseCookieHeader(Astro.request.headers.get('Cookie') ?? '');
+const cookieNames = allCookies.map((c: any) => c.name).join(', ');
+
+console.log('[callback] code present:', !!code);
+console.log('[callback] cookies received:', cookieNames || 'NONE');
 
 if (code) {
   const supabase = createServerClient(
@@ -13,7 +18,7 @@ if (code) {
           return parseCookieHeader(Astro.request.headers.get('Cookie') ?? '');
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
+          cookiesToSet.forEach(({ name, value, options }: any) =>
             Astro.cookies.set(name, value, options)
           );
         },
@@ -23,9 +28,12 @@ if (code) {
 
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
-    console.error('exchangeCodeForSession error:', error.message);
+    console.error('[callback] exchangeCodeForSession FULL ERROR:', JSON.stringify(error));
+    console.error('[callback] error.message:', error.message);
+    console.error('[callback] error.status:', (error as any).status);
     return Astro.redirect('/login?error=1');
   }
+  console.log('[callback] session exchange SUCCESS');
 }
 
 return Astro.redirect('/');
