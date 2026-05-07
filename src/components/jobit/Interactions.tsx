@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from './icons';
 import { useApp } from './store';
 import { empresas, kanbanCols, estadoLabels } from './data';

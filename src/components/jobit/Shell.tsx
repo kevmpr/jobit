@@ -1,4 +1,3 @@
-import React from 'react';
 import { Icon } from './icons';
 import { useApp } from './store';
 import type { Page } from './types';

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { Icon } from './icons';
 import { useApp } from './store';
 import { estadoLabels, estadoColors } from './data';

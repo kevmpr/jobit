@@ -1,9 +1,9 @@
-import React, { useState, useCallback, useEffect, Component } from 'react';
+import { useState, useCallback, useEffect, Component, ReactNode} from 'react';
 
 // ---- Error Boundary ----
 interface EBState { error: Error | null }
-class ErrorBoundary extends Component<{ children: React.ReactNode }, EBState> {
-  constructor(props: { children: React.ReactNode }) {
+class ErrorBoundary extends Component<{ children: ReactNode }, EBState> {
+  constructor(props: { children: ReactNode }) {
     super(props);
     this.state = { error: null };
   }
