@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from './icons';
 import { useApp } from './store';
-import { empresas, kanbanCols, estadoLabels } from './data';
-import type { Oferta, EstadoOferta, Modalidad } from './types';
+import { kanbanCols, estadoLabels } from './data';
+import type { Oferta, EstadoOferta } from './types';
 
 /* ---- TOAST ---- */
 export function ToastContainer() {
@@ -35,29 +35,57 @@ interface NewOfertaForm {
   titulo: string;
   empresa: string;
   estado: EstadoOferta;
-  modalidad: Modalidad;
-  proximaFecha: string;
+  modalidad: string;
+  fechaInicio: string;
   moneda: string;
-  salario: string;
+  salarioBruto: string;
+  salarioNeto: string;
+  pretension: string;
+  metodoPago: string;
   tags: string;
   descripcion: string;
+  tipoEmpleo: string;
+  jornada: string;
+  pais: string;
+  ciudad: string;
 }
 
 export function NuevaOfertaModal() {
-  const { nuevaOpen, setNuevaOpen, addOferta, showToast } = useApp();
+  const { nuevaOpen, setNuevaOpen, addOferta, showToast, empresas } = useApp();
   const backdropRef = useRef<HTMLDivElement>(null);
+
+  // Derive the first available empresa id from context so the default is always
+  // a valid Supabase UUID, not the hardcoded 'globant' static key.
+  const firstEmpresaId = Object.keys(empresas)[0] ?? '';
 
   const [form, setForm] = useState<NewOfertaForm>({
     titulo: '',
-    empresa: 'globant',
-    estado: 'nueva',
-    modalidad: 'remoto',
-    proximaFecha: '',
-    moneda: 'USD',
-    salario: '',
+    empresa: firstEmpresaId,
+    estado: 'recibida',
+    modalidad: '',
+    fechaInicio: new Date().toISOString().split('T')[0],
+    moneda: '',
+    salarioBruto: '',
+    salarioNeto: '',
+    pretension: '',
+    metodoPago: '',
     tags: '',
     descripcion: '',
+    tipoEmpleo: '',
+    jornada: '',
+    pais: '',
+    ciudad: '',
   });
+
+  // Keep empresa in sync when empresas loads asynchronously (e.g. on first render
+  // the map is empty, then fills — we need to set a real id as soon as it arrives).
+  useEffect(() => {
+    if (form.empresa === '' || !(form.empresa in empresas)) {
+      const id = Object.keys(empresas)[0];
+      if (id) setForm((prev) => ({ ...prev, empresa: id }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresas]);
 
   const [error, setError] = useState('');
 
@@ -78,27 +106,29 @@ export function NuevaOfertaModal() {
     }
 
     const newOferta: Oferta = {
-      id: `o-${Date.now()}`,
+      id: '',
       titulo: form.titulo,
-      empresa: form.empresa,
+      empresa: form.empresa || '',
       estado: form.estado,
       tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean),
-      modalidad: form.modalidad,
-      tipoEmpleo: 'full-time',
-      metodoPago: 'mensual',
-      moneda: form.moneda as Oferta['moneda'],
-      salarioBrutoOfrecido: form.salario ? Number(form.salario) : null,
-      salarioNetoOfrecido: form.salario ? Math.round(Number(form.salario) * 0.8) : null,
+      modalidad: (form.modalidad as Oferta['modalidad']) || null,
+      tipoEmpleo: (form.tipoEmpleo as Oferta['tipoEmpleo']) || null,
+      metodoPago: (form.metodoPago as Oferta['metodoPago']) || null,
+      moneda: (form.moneda as Oferta['moneda']) || null,
+      salarioBrutoOfrecido: form.salarioBruto ? Math.round(Number(form.salarioBruto)) : null,
+      salarioNetoOfrecido: form.salarioNeto ? Math.round(Number(form.salarioNeto)) : null,
+      pretension: form.pretension ? Math.round(Number(form.pretension)) : undefined,
       descripcionPuesto: form.descripcion,
       beneficios: [],
-      jornada: '40hs/semana',
-      pais: empresas[form.empresa]?.pais ?? '',
-      ciudad: '',
+      jornada: form.jornada.trim() || null,
+      pais: form.pais.trim() || null,
+      ciudad: form.ciudad.trim() || null,
       contactos: [],
       cvEnviado: null,
       pasoActual: 0,
       pasosTotales: 4,
-      proximaFecha: form.proximaFecha || null,
+      fechaInicio: form.fechaInicio || null,
+      pasos: [],
       scoring: 0,
       actualizadoEn: new Date().toISOString().slice(0, 10),
     };
@@ -106,7 +136,7 @@ export function NuevaOfertaModal() {
     addOferta(newOferta);
     showToast('Oferta creada correctamente', 'success');
     setNuevaOpen(false);
-    setForm({ titulo: '', empresa: 'globant', estado: 'nueva', modalidad: 'remoto', proximaFecha: '', moneda: 'USD', salario: '', tags: '', descripcion: '' });
+    setForm({ titulo: '', empresa: Object.keys(empresas)[0] ?? '', estado: 'recibida', modalidad: '', fechaInicio: new Date().toISOString().split('T')[0], moneda: '', salarioBruto: '', salarioNeto: '', pretension: '', metodoPago: '', tags: '', descripcion: '', tipoEmpleo: '', jornada: '', pais: '', ciudad: '' });
     setError('');
   };
 
@@ -148,6 +178,7 @@ export function NuevaOfertaModal() {
             <div className="form-group">
               <label className="form-label">Empresa</label>
               <select className="form-input" value={form.empresa} onChange={(e) => set('empresa', e.target.value)}>
+                <option value="">Sin empresa</option>
                 {Object.values(empresas).map((emp) => (
                   <option key={emp.id} value={emp.id}>{emp.nombre}</option>
                 ))}
@@ -165,37 +196,17 @@ export function NuevaOfertaModal() {
 
           <div className="form-group">
             <label className="form-label">Modalidad</label>
-            <div className="segmented">
-              {(['remoto', 'hibrido', 'presencial'] as Modalidad[]).map((m) => (
-                <button
-                  key={m}
-                  className={`segmented-btn${form.modalidad === m ? ' active' : ''}`}
-                  onClick={() => set('modalidad', m)}
-                  type="button"
-                  style={{ textTransform: 'capitalize' }}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
+            <select className="form-input" value={form.modalidad} onChange={(e) => set('modalidad', e.target.value)}>
+              <option value="">Sin especificar</option>
+              <option value="remoto">Remoto</option>
+              <option value="hibrido">Híbrido</option>
+              <option value="presencial">Presencial</option>
+            </select>
           </div>
 
-          <div className="grid-2">
-            <div className="form-group">
-              <label className="form-label">Próxima fecha</label>
-              <input className="form-input" type="date" value={form.proximaFecha} onChange={(e) => set('proximaFecha', e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Salario bruto</label>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <select className="form-input" value={form.moneda} onChange={(e) => set('moneda', e.target.value)} style={{ width: 80, flexShrink: 0 }}>
-                  <option>USD</option>
-                  <option>ARS</option>
-                  <option>EUR</option>
-                </select>
-                <input className="form-input" type="number" placeholder="ej. 5000" value={form.salario} onChange={(e) => set('salario', e.target.value)} style={{ flex: 1 }} />
-              </div>
-            </div>
+          <div className="form-group">
+            <label className="form-label">Fecha de inicio</label>
+            <input className="form-input" type="date" value={form.fechaInicio} onChange={(e) => set('fechaInicio', e.target.value)} />
           </div>
 
           <div className="form-group">
@@ -206,6 +217,80 @@ export function NuevaOfertaModal() {
           <div className="form-group">
             <label className="form-label">Descripción</label>
             <textarea className="form-input" placeholder="Descripción del puesto…" value={form.descripcion} onChange={(e) => set('descripcion', e.target.value)} rows={4} />
+          </div>
+
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, marginTop: 2 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
+              Salario (opcional)
+            </div>
+            <div className="grid-2">
+              <div className="form-group">
+                <label className="form-label">Moneda</label>
+                <select className="form-input" value={form.moneda} onChange={(e) => set('moneda', e.target.value)}>
+                  <option value="">Sin especificar</option>
+                  <option value="ARS">ARS</option>
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                  <option value="UYU">UYU</option>
+                  <option value="BRL">BRL</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Método de pago</label>
+                <select className="form-input" value={form.metodoPago} onChange={(e) => set('metodoPago', e.target.value)}>
+                  <option value="">Sin especificar</option>
+                  <option value="mensual">Mensual</option>
+                  <option value="por_hora">Por hora</option>
+                  <option value="por_proyecto">Por proyecto</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid-2">
+              <div className="form-group">
+                <label className="form-label">Salario bruto ofrecido</label>
+                <input className="form-input" type="number" placeholder="Ej: 3000" value={form.salarioBruto} onChange={(e) => set('salarioBruto', e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Salario neto estimado</label>
+                <input className="form-input" type="number" placeholder="Ej: 2400" value={form.salarioNeto} onChange={(e) => set('salarioNeto', e.target.value)} />
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Mi pretensión</label>
+              <input className="form-input" type="number" placeholder="Mi expectativa salarial para esta oferta" value={form.pretension} onChange={(e) => set('pretension', e.target.value)} />
+            </div>
+          </div>
+
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, marginTop: 2 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
+              Más información (opcional)
+            </div>
+            <div className="grid-2">
+              <div className="form-group">
+                <label className="form-label">Tipo de empleo</label>
+                <select className="form-input" value={form.tipoEmpleo} onChange={(e) => set('tipoEmpleo', e.target.value)}>
+                  <option value="">Sin especificar</option>
+                  <option value="full-time">Full-time</option>
+                  <option value="part-time">Part-time</option>
+                  <option value="contrato">Contrato</option>
+                  <option value="freelance">Freelance</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Jornada</label>
+                <input className="form-input" placeholder="Ej: Lunes a viernes 9-18hs" value={form.jornada} onChange={(e) => set('jornada', e.target.value)} />
+              </div>
+            </div>
+            <div className="grid-2">
+              <div className="form-group">
+                <label className="form-label">País</label>
+                <input className="form-input" placeholder="Ej: Argentina" value={form.pais} onChange={(e) => set('pais', e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Ciudad</label>
+                <input className="form-input" placeholder="Ej: Buenos Aires" value={form.ciudad} onChange={(e) => set('ciudad', e.target.value)} />
+              </div>
+            </div>
           </div>
         </div>
 

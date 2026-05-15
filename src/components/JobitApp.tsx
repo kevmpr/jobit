@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, Component, ReactNode} from 'react';
+import { useState, useCallback, useEffect, Component, ReactNode } from 'react';
 
 // ---- Error Boundary ----
 interface EBState { error: Error | null }
@@ -30,7 +30,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, EBState> {
 }
 import { AppCtx } from './jobit/store';
 import type { AppState } from './jobit/store';
-import type { Page, Toast, Tweaks, Oferta, EstadoOferta, Empresa, Contacto, CvItem, PerfilUsuario, ActivityItem, NotaItem, PasoRoadmap } from './jobit/types';
+import type { Page, Toast, Tweaks, Oferta, EstadoOferta, Empresa, Contacto, CvItem, PerfilUsuario, ActivityItem, NotaItem, PasoRoadmap, Plataforma, Experiencia, Educacion, Caso } from './jobit/types';
 import type { User } from '@supabase/supabase-js';
 import {
   fetchOfertas,
@@ -42,8 +42,34 @@ import {
   fetchNotas,
   fetchAllRoadmapPasos,
   fetchAllOfertaContactos,
+  fetchPlataformas,
+  fetchExperiencia,
+  fetchEducacion,
+  fetchCasos as dbFetchCasos,
+  addCaso as dbAddCaso,
+  updateCaso as dbUpdateCaso,
+  deleteCaso as dbDeleteCaso,
   moveOferta as dbMoveOferta,
   addOferta as dbAddOferta,
+  addEmpresa as dbAddEmpresa,
+  updateEmpresa as dbUpdateEmpresa,
+  deleteEmpresa as dbDeleteEmpresa,
+  addContacto as dbAddContacto,
+  updateContacto as dbUpdateContacto,
+  deleteContacto as dbDeleteContacto,
+  addOfertaContacto as dbAddOfertaContacto,
+  removeOfertaContacto as dbRemoveOfertaContacto,
+  addPlataforma as dbAddPlataforma,
+  updatePlataforma as dbUpdatePlataforma,
+  deletePlataforma as dbDeletePlataforma,
+  updatePerfil as dbUpdatePerfil,
+  addExperiencia as dbAddExperiencia,
+  updateExperiencia as dbUpdateExperiencia,
+  deleteExperiencia as dbDeleteExperiencia,
+  addEducacion as dbAddEducacion,
+  updateEducacion as dbUpdateEducacion,
+  deleteEducacion as dbDeleteEducacion,
+  uploadAvatar as dbUploadAvatar,
 } from '../lib/db';
 import { supabase } from '../lib/supabase';
 import { Sidebar, Topbar } from './jobit/Shell';
@@ -51,7 +77,8 @@ import { Dashboard } from './jobit/Dashboard';
 import { Ofertas } from './jobit/Ofertas';
 import { OfertaDetail } from './jobit/OfertaDetail';
 import { Comparar } from './jobit/Comparar';
-import { Perfil, CVs, Contactos, Empresas, Notas, Configuracion } from './jobit/ExtraPages';
+import { Perfil, CVs, Contactos, Empresas, Plataformas, Configuracion } from './jobit/ExtraPages';
+import { CasosPage } from './jobit/Casos';
 import { ToastContainer, NuevaOfertaModal } from './jobit/Interactions';
 
 import '../styles/global.css';
@@ -63,7 +90,7 @@ export default function JobitApp() {
   const [dark, setDark] = useState(false);
   const [nuevaOpen, setNuevaOpen] = useState(false);
   const [tweaks, setTweaksState] = useState<Tweaks>({
-    hue: 250, density: 'comfortable', sidebar: 'expanded', roadmap: 'vertical', card: 'default', font: 'geist',
+    hue: 250, density: 'comfortable', sidebar: 'expanded', card: 'default', font: 'geist',
   });
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -72,14 +99,20 @@ export default function JobitApp() {
   const [ofertas, setOfertas] = useState<Oferta[]>([]);
   const [empresas, setEmpresas] = useState<Record<string, Empresa>>({});
   const [contactos, setContactos] = useState<Record<string, Contacto>>({});
-  const [cvs, setCvs] = useState<CvItem[]>([]);
+  const [cvs, setCvs] = useState<Record<string, CvItem>>({});
   const [perfil, setPerfil] = useState<PerfilUsuario | null>(null);
   const [actividadLog, setActividadLog] = useState<ActivityItem[]>([]);
   const [notas, setNotas] = useState<NotaItem[]>([]);
   const [roadmapPasos, setRoadmapPasos] = useState<Record<string, PasoRoadmap[]>>({});
   const [ofertaContactos, setOfertaContactos] = useState<Record<string, string[]>>({});
+  const [plataformas, setPlataformas] = useState<Record<string, Plataforma>>({});
+  const [experiencia, setExperiencia] = useState<Experiencia[]>([]);
+  const [educacion, setEducacion] = useState<Educacion[]>([]);
+  const [casos, setCasos] = useState<Caso[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Sync auth user — redirect to /login only after a definitive no-session confirmation.
   // onAuthStateChange fires INITIAL_SESSION with null before cookies are resolved on
@@ -109,62 +142,87 @@ export default function JobitApp() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Shared fetch logic — used on mount and for manual refresh
+  const refreshAll = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+
+      const [
+        ofertasData,
+        empresasData,
+        contactosData,
+        cvsData,
+        perfilData,
+        actividadData,
+        notasData,
+        roadmapData,
+        contactosOfertaData,
+        plataformasData,
+        experienciaData,
+        educacionData,
+        casosData,
+      ] = await Promise.all([
+        fetchOfertas(),
+        fetchEmpresas(),
+        fetchContactos(),
+        fetchCVs(),
+        fetchPerfil(),
+        fetchActividadLog(),
+        fetchNotas(),
+        fetchAllRoadmapPasos(),
+        fetchAllOfertaContactos(),
+        fetchPlataformas(),
+        userId ? fetchExperiencia(userId) : Promise.resolve([]),
+        userId ? fetchEducacion(userId) : Promise.resolve([]),
+        userId ? dbFetchCasos(userId) : Promise.resolve([]),
+      ]);
+
+      // Build lookup maps
+      const empresasMap: Record<string, Empresa> = {};
+      for (const e of empresasData) empresasMap[e.id] = e;
+
+      const contactosMap: Record<string, Contacto> = {};
+      for (const c of contactosData) contactosMap[c.id] = c;
+
+      // Attach contacto ids to ofertas from oferta_contactos junction
+      const enrichedOfertas = ofertasData.map((o) => ({
+        ...o,
+        contactos: contactosOfertaData[o.id] ?? [],
+      }));
+
+      setOfertas(enrichedOfertas);
+      setEmpresas(empresasMap);
+      setContactos(contactosMap);
+      const cvsMap: Record<string, CvItem> = {};
+      for (const cv of cvsData) cvsMap[cv.id] = cv;
+      setCvs(cvsMap);
+      setPerfil(perfilData);
+      setActividadLog(actividadData);
+      setNotas(notasData);
+      setRoadmapPasos(roadmapData);
+      setOfertaContactos(contactosOfertaData);
+      setPlataformas(plataformasData);
+      setExperiencia(experienciaData);
+      setEducacion(educacionData);
+      setCasos(casosData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al cargar los datos');
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
   // Load all data on mount
   useEffect(() => {
     let cancelled = false;
 
     async function loadAll() {
       try {
-        const [
-          ofertasData,
-          empresasData,
-          contactosData,
-          cvsData,
-          perfilData,
-          actividadData,
-          notasData,
-          roadmapData,
-          contactosOfertaData,
-        ] = await Promise.all([
-          fetchOfertas(),
-          fetchEmpresas(),
-          fetchContactos(),
-          fetchCVs(),
-          fetchPerfil(),
-          fetchActividadLog(),
-          fetchNotas(),
-          fetchAllRoadmapPasos(),
-          fetchAllOfertaContactos(),
-        ]);
-
-        if (cancelled) return;
-
-        // Build lookup maps
-        const empresasMap: Record<string, Empresa> = {};
-        for (const e of empresasData) empresasMap[e.id] = e;
-
-        const contactosMap: Record<string, Contacto> = {};
-        for (const c of contactosData) contactosMap[c.id] = c;
-
-        // Attach contacto ids to ofertas from oferta_contactos junction
-        const enrichedOfertas = ofertasData.map((o) => ({
-          ...o,
-          contactos: contactosOfertaData[o.id] ?? [],
-        }));
-
-        setOfertas(enrichedOfertas);
-        setEmpresas(empresasMap);
-        setContactos(contactosMap);
-        setCvs(cvsData);
-        setPerfil(perfilData);
-        setActividadLog(actividadData);
-        setNotas(notasData);
-        setRoadmapPasos(roadmapData);
-        setOfertaContactos(contactosOfertaData);
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Error al cargar los datos');
-        }
+        await refreshAll();
+      } catch {
+        // errors handled inside refreshAll
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -172,6 +230,7 @@ export default function JobitApp() {
 
     loadAll();
     return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Sync dark mode with html element
@@ -189,9 +248,22 @@ export default function JobitApp() {
   }, []);
 
   const toggleDark = useCallback(() => setDark((d) => !d), []);
+  const toggleSidebar = useCallback(() => setSidebarOpen((v) => !v), []);
 
   const setTweaks = useCallback((t: Partial<Tweaks>) => {
     setTweaksState((prev) => ({ ...prev, ...t }));
+  }, []);
+
+  const showToast = useCallback((message: string, variant: Toast['variant']) => {
+    const id = `toast-${Date.now()}`;
+    setToasts((prev) => [...prev, { id, message, variant }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 2200);
+  }, []);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
   const moveOferta = useCallback(async (id: string, estado: EstadoOferta) => {
@@ -209,26 +281,307 @@ export default function JobitApp() {
   }, [ofertaContactos]);
 
   const addOferta = useCallback(async (oferta: Oferta) => {
-    // Optimistic update
-    setOfertas((prev) => [oferta, ...prev]);
+    // Use crypto.randomUUID() so the id is always a valid UUID accepted by Supabase
+    const id = crypto.randomUUID();
+    // Normalize empresa: the type expects string, never null
+    const empresa = oferta.empresa ?? '';
+    const ofertaWithId = { ...oferta, id, empresa };
+    // Optimistic update — add to state immediately so the card appears right away
+    setOfertas((prev) => [ofertaWithId, ...prev]);
     try {
-      await dbAddOferta(oferta, currentUser?.id);
+      // Always resolve the current user id from the live session, not just from state,
+      // so the insert succeeds even if the component mounted before getSession() resolved.
+      const userId = currentUser?.id ?? (await supabase.auth.getSession()).data.session?.user.id;
+      await dbAddOferta(ofertaWithId, userId);
+      const freshOfertas = await fetchOfertas();
+      setOfertas(freshOfertas.map((o) => ({ ...o, contactos: ofertaContactos[o.id] ?? [] })));
+    } catch (err) {
+      console.error('[jobit] addOferta error (full):', err);
+      // Do NOT revert the optimistic update immediately — refetch instead.
+      // If the insert actually succeeded, the refetch will include the new offer.
+      // If it genuinely failed, the refetch won't include it (correct behavior).
+      try {
+        const freshOfertas = await fetchOfertas();
+        setOfertas(freshOfertas.map((o) => ({ ...o, contactos: ofertaContactos[o.id] ?? [] })));
+      } catch (fetchErr) {
+        console.error('[jobit] addOferta fallback refetch also failed:', fetchErr);
+      }
+      showToast('Error al guardar la oferta. Por favor intenta de nuevo.', 'error');
+    }
+  }, [currentUser, ofertaContactos, showToast]);
+
+  const addEmpresa = useCallback((empresa: Empresa) => {
+    // The modal already persisted to DB and returns the real empresa — just update state
+    setEmpresas((prev) => ({ ...prev, [empresa.id]: empresa }));
+  }, []);
+
+  const updateEmpresa = useCallback((id: string, data: Partial<Empresa>) => {
+    // Optimistic update
+    setEmpresas((prev) => {
+      const existing = prev[id];
+      if (!existing) return prev;
+      return { ...prev, [id]: { ...existing, ...data } };
+    });
+    dbUpdateEmpresa(id, data).catch(() => {
+      // Revert on error — refetch empresas
+      fetchEmpresas().then((fresh) => {
+        const map: Record<string, Empresa> = {};
+        for (const e of fresh) map[e.id] = e;
+        setEmpresas(map);
+      });
+    });
+  }, []);
+
+  const deleteEmpresa = useCallback((id: string) => {
+    // Optimistic update — remove from map immediately
+    setEmpresas((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    dbDeleteEmpresa(id).catch(() => {
+      // Revert on error — refetch empresas
+      fetchEmpresas().then((fresh) => {
+        const map: Record<string, Empresa> = {};
+        for (const e of fresh) map[e.id] = e;
+        setEmpresas(map);
+      });
+    });
+  }, []);
+
+  const addContacto = useCallback((contacto: Contacto) => {
+    // The modal already persisted to DB and returns the real contacto — just update state
+    setContactos((prev) => ({ ...prev, [contacto.id]: contacto }));
+  }, []);
+
+  const updateContacto = useCallback((id: string, data: Partial<Contacto>) => {
+    // Optimistic update
+    setContactos((prev) => {
+      const existing = prev[id];
+      if (!existing) return prev;
+      return { ...prev, [id]: { ...existing, ...data } };
+    });
+    dbUpdateContacto(id, data).catch(() => {
+      // Revert on error — refetch contactos
+      fetchContactos().then((fresh) => {
+        const map: Record<string, Contacto> = {};
+        for (const c of fresh) map[c.id] = c;
+        setContactos(map);
+      });
+    });
+  }, []);
+
+  const deleteContacto = useCallback((id: string) => {
+    // Optimistic update — remove from map immediately
+    setContactos((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    dbDeleteContacto(id).catch(() => {
+      // Revert on error — refetch contactos
+      fetchContactos().then((fresh) => {
+        const map: Record<string, Contacto> = {};
+        for (const c of fresh) map[c.id] = c;
+        setContactos(map);
+      });
+    });
+  }, []);
+
+  const addPlataforma = useCallback((plataforma: Plataforma) => {
+    setPlataformas((prev) => ({ ...prev, [plataforma.id]: plataforma }));
+  }, []);
+
+  const updatePlataforma = useCallback((id: string, data: Partial<Plataforma>) => {
+    setPlataformas((prev) => {
+      const existing = prev[id];
+      if (!existing) return prev;
+      return { ...prev, [id]: { ...existing, ...data } };
+    });
+    dbUpdatePlataforma(id, data).catch(() => {
+      fetchPlataformas().then((fresh) => setPlataformas(fresh));
+    });
+  }, []);
+
+  const deletePlataforma = useCallback((id: string) => {
+    setPlataformas((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    dbDeletePlataforma(id).catch(() => {
+      fetchPlataformas().then((fresh) => setPlataformas(fresh));
+    });
+  }, []);
+
+  const addCV = useCallback((cv: CvItem) => {
+    setCvs((prev) => ({ ...prev, [cv.id]: cv }));
+  }, []);
+
+  const removeCV = useCallback((id: string) => {
+    setCvs((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }, []);
+
+  const updatePerfil = useCallback(async (data: Partial<PerfilUsuario>) => {
+    await dbUpdatePerfil(data);
+    setPerfil((prev) => prev ? { ...prev, ...data } : prev);
+  }, []);
+
+  const addExperiencia = useCallback(async (data: Omit<Experiencia, 'id'>) => {
+    const userId = currentUser?.id ?? (await supabase.auth.getSession()).data.session?.user.id;
+    if (!userId) throw new Error('No autenticado');
+    const exp = await dbAddExperiencia(data, userId);
+    setExperiencia((prev) => [exp, ...prev]);
+  }, [currentUser]);
+
+  const updateExperiencia = useCallback(async (id: string, data: Partial<Experiencia>) => {
+    setExperiencia((prev) => prev.map((e) => e.id === id ? { ...e, ...data } : e));
+    try {
+      await dbUpdateExperiencia(id, data);
     } catch {
-      // Revert on error
-      setOfertas((prev) => prev.filter((o) => o.id !== oferta.id));
+      const userId = currentUser?.id ?? (await supabase.auth.getSession()).data.session?.user.id;
+      if (userId) setExperiencia(await fetchExperiencia(userId));
     }
   }, [currentUser]);
 
-  const showToast = useCallback((message: string, variant: Toast['variant']) => {
-    const id = `toast-${Date.now()}`;
-    setToasts((prev) => [...prev, { id, message, variant }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 2200);
+  const deleteExperiencia = useCallback(async (id: string) => {
+    setExperiencia((prev) => prev.filter((e) => e.id !== id));
+    try {
+      await dbDeleteExperiencia(id);
+    } catch {
+      const userId = currentUser?.id ?? (await supabase.auth.getSession()).data.session?.user.id;
+      if (userId) setExperiencia(await fetchExperiencia(userId));
+    }
+  }, [currentUser]);
+
+  const addEducacion = useCallback(async (data: Omit<Educacion, 'id'>) => {
+    const userId = currentUser?.id ?? (await supabase.auth.getSession()).data.session?.user.id;
+    if (!userId) throw new Error('No autenticado');
+    const edu = await dbAddEducacion(data, userId);
+    setEducacion((prev) => [edu, ...prev]);
+  }, [currentUser]);
+
+  const updateEducacion = useCallback(async (id: string, data: Partial<Educacion>) => {
+    setEducacion((prev) => prev.map((e) => e.id === id ? { ...e, ...data } : e));
+    try {
+      await dbUpdateEducacion(id, data);
+    } catch {
+      const userId = currentUser?.id ?? (await supabase.auth.getSession()).data.session?.user.id;
+      if (userId) setEducacion(await fetchEducacion(userId));
+    }
+  }, [currentUser]);
+
+  const deleteEducacion = useCallback(async (id: string) => {
+    setEducacion((prev) => prev.filter((e) => e.id !== id));
+    try {
+      await dbDeleteEducacion(id);
+    } catch {
+      const userId = currentUser?.id ?? (await supabase.auth.getSession()).data.session?.user.id;
+      if (userId) setEducacion(await fetchEducacion(userId));
+    }
+  }, [currentUser]);
+
+  const updateAvatar = useCallback(async (file: File) => {
+    const userId = currentUser?.id ?? (await supabase.auth.getSession()).data.session?.user.id;
+    if (!userId) throw new Error('No autenticado');
+    const url = await dbUploadAvatar(file, userId);
+    setPerfil((prev) => prev ? { ...prev, avatarUrl: url } : prev);
+  }, [currentUser]);
+
+  const fetchCasos = useCallback(async () => {
+    const userId = currentUser?.id ?? (await supabase.auth.getSession()).data.session?.user.id;
+    if (!userId) return;
+    const data = await dbFetchCasos(userId);
+    setCasos(data);
+  }, [currentUser]);
+
+  const addCaso = useCallback(async (data: Partial<Caso>) => {
+    const userId = currentUser?.id ?? (await supabase.auth.getSession()).data.session?.user.id;
+    if (!userId) throw new Error('No autenticado');
+    const caso = await dbAddCaso(userId, data);
+    setCasos((prev) => [caso, ...prev]);
+  }, [currentUser]);
+
+  const updateCaso = useCallback(async (id: string, data: Partial<Caso>) => {
+    setCasos((prev) => prev.map((c) => c.id === id ? { ...c, ...data } : c));
+    try {
+      await dbUpdateCaso(id, data);
+    } catch {
+      const userId = currentUser?.id ?? (await supabase.auth.getSession()).data.session?.user.id;
+      if (userId) setCasos(await dbFetchCasos(userId));
+    }
+  }, [currentUser]);
+
+  const deleteCaso = useCallback(async (id: string) => {
+    setCasos((prev) => prev.filter((c) => c.id !== id));
+    try {
+      await dbDeleteCaso(id);
+    } catch {
+      const userId = currentUser?.id ?? (await supabase.auth.getSession()).data.session?.user.id;
+      if (userId) setCasos(await dbFetchCasos(userId));
+    }
+  }, [currentUser]);
+
+  const updateOfertaPasos = useCallback((ofertaId: string, pasos: PasoRoadmap[]) => {
+    setOfertas((prev) => prev.map((o) =>
+      o.id === ofertaId ? { ...o, pasos } : o
+    ));
   }, []);
 
-  const dismissToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+  const addOfertaContacto = useCallback(async (ofertaId: string, contactoId: string) => {
+    // Optimistic update
+    setOfertaContactos((prev) => {
+      const existing = prev[ofertaId] ?? [];
+      if (existing.includes(contactoId)) return prev;
+      return { ...prev, [ofertaId]: [...existing, contactoId] };
+    });
+    setOfertas((prev) => prev.map((o) =>
+      o.id === ofertaId && !o.contactos.includes(contactoId)
+        ? { ...o, contactos: [...o.contactos, contactoId] }
+        : o
+    ));
+    try {
+      await dbAddOfertaContacto(ofertaId, contactoId);
+    } catch {
+      // Revert on error
+      setOfertaContactos((prev) => ({
+        ...prev,
+        [ofertaId]: (prev[ofertaId] ?? []).filter((id) => id !== contactoId),
+      }));
+      setOfertas((prev) => prev.map((o) =>
+        o.id === ofertaId ? { ...o, contactos: o.contactos.filter((id) => id !== contactoId) } : o
+      ));
+    }
+  }, []);
+
+  const removeOfertaContacto = useCallback(async (ofertaId: string, contactoId: string) => {
+    // Optimistic update
+    setOfertaContactos((prev) => ({
+      ...prev,
+      [ofertaId]: (prev[ofertaId] ?? []).filter((id) => id !== contactoId),
+    }));
+    setOfertas((prev) => prev.map((o) =>
+      o.id === ofertaId ? { ...o, contactos: o.contactos.filter((id) => id !== contactoId) } : o
+    ));
+    try {
+      await dbRemoveOfertaContacto(ofertaId, contactoId);
+    } catch {
+      // Revert on error
+      setOfertaContactos((prev) => {
+        const existing = prev[ofertaId] ?? [];
+        if (existing.includes(contactoId)) return prev;
+        return { ...prev, [ofertaId]: [...existing, contactoId] };
+      });
+      setOfertas((prev) => prev.map((o) =>
+        o.id === ofertaId && !o.contactos.includes(contactoId)
+          ? { ...o, contactos: [...o.contactos, contactoId] }
+          : o
+      ));
+    }
   }, []);
 
   if (loading) return (
@@ -260,16 +613,65 @@ export default function JobitApp() {
     setTweaks: (tweaks: Partial<Tweaks>) => void;
     moveOferta: (id: string, estado: EstadoOferta) => Promise<void>;
     addOferta: (oferta: Oferta) => Promise<void>;
+    addEmpresa: (empresa: Empresa) => void;
+    updateEmpresa: (id: string, data: Partial<Empresa>) => void;
+    deleteEmpresa: (id: string) => void;
+    addContacto: (contacto: Contacto) => void;
+    updateContacto: (id: string, data: Partial<Contacto>) => void;
+    deleteContacto: (id: string) => void;
+    addPlataforma: (plataforma: Plataforma) => void;
+    updatePlataforma: (id: string, data: Partial<Plataforma>) => void;
+    deletePlataforma: (id: string) => void;
+    addOfertaContacto: (ofertaId: string, contactoId: string) => Promise<void>;
+    removeOfertaContacto: (ofertaId: string, contactoId: string) => Promise<void>;
+    updateOfertaPasos: (ofertaId: string, pasos: PasoRoadmap[]) => void;
     showToast: (message: string, variant: Toast['variant']) => void;
     dismissToast: (id: string) => void;
+    setNotas: (notas: NotaItem[]) => void;
+    addCV: (cv: CvItem) => void;
+    removeCV: (id: string) => void;
+    updatePerfil: (data: Partial<PerfilUsuario>) => Promise<void>;
+    addExperiencia: (data: Omit<Experiencia, 'id'>) => Promise<void>;
+    updateExperiencia: (id: string, data: Partial<Experiencia>) => Promise<void>;
+    deleteExperiencia: (id: string) => Promise<void>;
+    addEducacion: (data: Omit<Educacion, 'id'>) => Promise<void>;
+    updateEducacion: (id: string, data: Partial<Educacion>) => Promise<void>;
+    deleteEducacion: (id: string) => Promise<void>;
+    updateAvatar: (file: File) => Promise<void>;
+    fetchCasos: () => Promise<void>;
+    addCaso: (data: Partial<Caso>) => Promise<void>;
+    updateCaso: (id: string, data: Partial<Caso>) => Promise<void>;
+    deleteCaso: (id: string) => Promise<void>;
     currentUser: User | null;
+    refreshAll: () => Promise<void>;
+    refreshing: boolean;
+    setSidebarOpen: (v: boolean) => void;
+    toggleSidebar: () => void;
   } = {
     page, ofertaId, ofertasView, dark, nuevaOpen, tweaks,
-    ofertas, empresas, contactos, cvs, perfil, actividadLog, notas, roadmapPasos, ofertaContactos,
+    ofertas, empresas, contactos, cvs, perfil, actividadLog, notas, roadmapPasos, ofertaContactos, plataformas,
+    experiencia, educacion, casos,
     toasts, loading, error,
     setPage, setOfertasView, toggleDark, setNuevaOpen, setTweaks,
-    moveOferta, addOferta, showToast, dismissToast,
+    moveOferta, addOferta, addEmpresa, updateEmpresa, deleteEmpresa,
+    addContacto, updateContacto, deleteContacto,
+    addPlataforma, updatePlataforma, deletePlataforma,
+    addOfertaContacto, removeOfertaContacto,
+    updateOfertaPasos,
+    showToast, dismissToast,
+    setNotas,
+    addCV, removeCV,
+    updatePerfil,
+    addExperiencia, updateExperiencia, deleteExperiencia,
+    addEducacion, updateEducacion, deleteEducacion,
+    updateAvatar,
+    fetchCasos, addCaso, updateCaso, deleteCaso,
     currentUser,
+    refreshAll,
+    refreshing,
+    sidebarOpen,
+    setSidebarOpen,
+    toggleSidebar,
   };
 
   const renderPage = () => {
@@ -282,8 +684,9 @@ export default function JobitApp() {
       case 'cvs': return <CVs />;
       case 'contactos': return <Contactos />;
       case 'empresas': return <Empresas />;
-      case 'notas': return <Notas />;
+      case 'plataformas': return <Plataformas />;
       case 'configuracion': return <Configuracion />;
+      case 'casos': return <CasosPage />;
       default: return <Dashboard />;
     }
   };
@@ -300,7 +703,7 @@ export default function JobitApp() {
           <Sidebar onNewOferta={() => setNuevaOpen(true)} />
           <div className="main-area">
             <Topbar />
-            <div style={{ flex: 1, overflow: page === 'notas' ? 'hidden' : 'auto', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
               {renderPage()}
             </div>
           </div>

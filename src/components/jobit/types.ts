@@ -1,15 +1,15 @@
 export type EstadoOferta =
-  | 'nueva'
+  | 'recibida'
   | 'aplicada'
-  | 'en_proceso'
-  | 'oferta_recibida'
+  | 'pendiente'
+  | 'rechazada_yo'
   | 'rechazada_empresa'
-  | 'ghosted';
+  | 'ignorada';
 
 export type Modalidad = 'remoto' | 'hibrido' | 'presencial';
 export type TipoEmpleo = 'full-time' | 'part-time' | 'freelance' | 'contrato';
-export type MetodoPago = 'mensual' | 'hora' | 'proyecto';
-export type Moneda = 'USD' | 'ARS' | 'EUR';
+export type MetodoPago = 'mensual' | 'hora' | 'proyecto' | 'por_hora' | 'por_proyecto';
+export type Moneda = 'USD' | 'ARS' | 'EUR' | 'UYU' | 'BRL';
 
 export interface Empresa {
   id: string;
@@ -25,10 +25,12 @@ export interface Empresa {
 export interface PasoRoadmap {
   id: string;
   titulo: string;
-  fecha: string | null;
-  descripcion: string;
-  estado: 'completado' | 'actual' | 'pendiente' | 'cancelado';
-  adjuntos?: string[];
+  descripcion?: string;
+  estado: 'pendiente' | 'completado' | 'finalizado';
+  fecha?: string;
+  plataformaId?: string;  // ID of the platform used in this step
+  contactoId?: string;    // ID of the contact person involved in this step
+  emoji?: string;         // Optional emoji icon for the step
 }
 
 export interface Contacto {
@@ -38,6 +40,8 @@ export interface Contacto {
   empresa: string;
   email: string;
   linkedin: string;
+  telefono?: string;
+  notas?: string;
   avatar: string;
   color: string;
 }
@@ -48,22 +52,24 @@ export interface Oferta {
   empresa: string;
   estado: EstadoOferta;
   tags: string[];
-  modalidad: Modalidad;
-  tipoEmpleo: TipoEmpleo;
-  metodoPago: MetodoPago;
-  moneda: Moneda;
+  modalidad: Modalidad | null;
+  tipoEmpleo: TipoEmpleo | null;
+  metodoPago: MetodoPago | null;
+  moneda: Moneda | null;
   salarioBrutoOfrecido: number | null;
   salarioNetoOfrecido: number | null;
   descripcionPuesto: string;
   beneficios: string[];
-  jornada: string;
-  pais: string;
-  ciudad: string;
+  jornada?: string | null;
+  pais?: string | null;
+  ciudad?: string | null;
   contactos: string[];
   cvEnviado: string | null;
+  cvEnviadoId?: string | null;
   pasoActual: number;
   pasosTotales: number;
-  proximaFecha: string | null;
+  fechaInicio: string | null;
+  pasos: PasoRoadmap[];
   scoring: number;
   actualizadoEn: string;
   url?: string;
@@ -82,6 +88,8 @@ export interface PerfilUsuario {
   email: string;
   telefono: string;
   linkedin: string;
+  github: string;
+  ubicacion: string;
   rol: string;
   empresa: string;
   senioridad: string;
@@ -92,10 +100,50 @@ export interface PerfilUsuario {
   salarioNeto: number;
   moneda: Moneda;
   modalidad: Modalidad;
+  metodoPago: MetodoPago;
   pretensionBruta: number;
   pretensionNeta: number;
   stack: string[];
-  certificaciones: string[];
+  habilidadesBlandas: string[];
+  idiomas: Idioma[];
+  certificaciones: Certificacion[];
+  avatarUrl?: string;
+  sobreMi?: string;
+  emailContacto?: string;
+}
+
+export interface Idioma {
+  nombre: string;
+  nivel: 'básico' | 'intermedio' | 'avanzado' | 'nativo';
+}
+
+export interface Certificacion {
+  id: string;
+  titulo: string;
+  emisor?: string;
+  fecha?: string;
+  url?: string;
+}
+
+export interface Experiencia {
+  id: string;
+  empresa: string;
+  rol: string;
+  fechaInicio?: string;
+  fechaFin?: string;
+  actual: boolean;
+  modalidad?: string;
+  descripcion?: string;
+}
+
+export interface Educacion {
+  id: string;
+  instituto: string;
+  titulo: string;
+  descripcion?: string;
+  fechaInicio?: string;
+  fechaFin?: string;
+  actual: boolean;
 }
 
 export interface ActivityItem {
@@ -125,6 +173,80 @@ export interface CvItem {
   fecha: string;
   ofertasUsadas: number;
   color: string;
+  storagePath: string;
+  sizeKb: number;
+}
+
+export interface Plataforma {
+  id: string;
+  nombre: string;
+  url?: string;
+  color: string;
+  logo?: string;
+  descripcion?: string;
+}
+
+export interface AdjuntoItem {
+  id: number;
+  nombre: string;
+  sizeKb: number;
+  tipo: string;
+  storagePath: string;
+  createdAt: string;
+}
+
+export interface CasoMetrica {
+  id: string;
+  etiqueta: string;
+  valor: string;
+  subtitulo?: string;
+}
+
+export interface CasoProyectoCerrado {
+  id: string;
+  cliente: string;
+  escala?: string;
+  ejecucion?: string;
+  impacto?: string;
+  destacado?: boolean;
+}
+
+export interface CasoProyectoActivo {
+  id: string;
+  nombre: string;
+  bullets: string[];
+}
+
+export interface CasoIniciativa {
+  id: string;
+  nombre: string;
+  descripcion?: string;
+  bullets: string[];
+  resultado?: string;
+}
+
+export interface Caso {
+  id: string;
+  empresa: string;
+  rolActual?: string;
+  rolSolicitado?: string;
+  fechaDesde?: string;
+  fechaHasta?: string;
+  resumenEjecutivo?: string;
+  conclusion?: string;
+  metricas: CasoMetrica[];
+  proyectosCerrados: CasoProyectoCerrado[];
+  proyectosActivos: CasoProyectoActivo[];
+  iniciativas: CasoIniciativa[];
+  competenciasTecnicas: string[];
+  competenciasBlandas: string[];
+  salarioActual?: number;
+  salarioSolicitado?: number;
+  salarioMercadoMin?: number;
+  salarioMercadoMax?: number;
+  moneda: string;
+  fuenteMercado?: string;
+  createdAt: string;
 }
 
 export type Page =
@@ -136,14 +258,14 @@ export type Page =
   | 'cvs'
   | 'contactos'
   | 'empresas'
-  | 'notas'
-  | 'configuracion';
+  | 'plataformas'
+  | 'configuracion'
+  | 'casos';
 
 export interface Tweaks {
   hue: number;
   density: 'compact' | 'comfortable' | 'spacious';
   sidebar: 'expanded' | 'collapsed';
-  roadmap: 'vertical' | 'stepper' | 'kanban';
   card: 'default' | 'minimal' | 'detailed';
   font: 'geist' | 'inter' | 'system';
 }

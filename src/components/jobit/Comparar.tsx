@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Icon } from './icons';
 import { useApp } from './store';
 import { estadoLabels } from './data';
 import type { Oferta } from './types';
 
-const COMPARE_IDS = ['o1', 'o3', 'o5'];
+const MAX_COMPARE = 4;
 
 const dimensions = [
   { key: 'salario', label: 'Compensación', max: 15000 },
@@ -16,6 +16,12 @@ const dimensions = [
   { key: 'equipo', label: 'Equipo' },
   { key: 'estabilidad', label: 'Estabilidad' },
 ];
+
+/** Deterministic 0–1 score for a dimension that has no real DB field. */
+function stableScore(id: string, salt: string): number {
+  const raw = parseInt((id + salt).replace(/\D/g, '').slice(-4) || '5000', 10);
+  return Math.max(0.2, Math.min(1, (raw % 100) / 100));
+}
 
 function RadarChart({ ofertas, empresas }: { ofertas: Oferta[]; empresas: Record<string, import('./types').Empresa> }) {
   const cx = 200, cy = 200, r = 160;
@@ -37,14 +43,40 @@ function RadarChart({ ofertas, empresas }: { ofertas: Oferta[]; empresas: Record
     'oklch(0.55 0.16 250)',
     'oklch(0.70 0.19 155)',
     'oklch(0.74 0.16 70)',
+    'oklch(0.65 0.18 320)',
   ];
 
-  // Mock per-oferta scores
-  const ofertaScores = ofertas.map((o) => dimensions.map((d) => {
-    if (d.key === 'salario') return o.salarioBrutoOfrecido ? Math.min(1, o.salarioBrutoOfrecido / 15000) : 0.5;
-    const base = o.scoring / 100;
-    return Math.max(0.2, Math.min(1, base + (Math.random() - 0.5) * 0.3));
-  }));
+  // Stable scores keyed on offer IDs — no Math.random()
+  const ofertaScores = useMemo(
+    () =>
+      ofertas.map((o) =>
+        dimensions.map((d) => {
+          if (d.key === 'salario')
+            return o.salarioBrutoOfrecido ? Math.min(1, o.salarioBrutoOfrecido / 15000) : 0.5;
+          // Use scoring as a base + deterministic per-dimension offset
+          const base = o.scoring / 100;
+          const offset = stableScore(o.id, d.key) * 0.3 - 0.15;
+          return Math.max(0.2, Math.min(1, base + offset));
+        })
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ofertas.map((o) => o.id).join(',')]
+  );
+
+  // Dynamic insights
+  const highestSalary = ofertas.length
+    ? ofertas.reduce((best, o) =>
+        (o.salarioBrutoOfrecido ?? 0) > (best.salarioBrutoOfrecido ?? 0) ? o : best
+      )
+    : null;
+
+  const mostAdvanced = ofertas.length
+    ? ofertas.reduce((best, o) => {
+        const ratioO = o.pasosTotales > 0 ? o.pasoActual / o.pasosTotales : 0;
+        const ratioBest = best.pasosTotales > 0 ? best.pasoActual / best.pasosTotales : 0;
+        return ratioO > ratioBest ? o : best;
+      })
+    : null;
 
   return (
     <div className="radar-container" style={{ alignItems: 'flex-start' }}>
@@ -114,9 +146,21 @@ function RadarChart({ ofertas, empresas }: { ofertas: Oferta[]; empresas: Record
             <Icon name="sparkles" size={13} stroke="oklch(0.52 0.20 250)" /> Insights
           </div>
           <ul style={{ paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <li style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Datadog ofrece la mayor compensación (+26% vs pretensión)</li>
-            <li style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Microsoft destaca en stack técnico y crecimiento</li>
-            <li style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Auth0 tiene mejor WLB según Glassdoor</li>
+            {highestSalary && (
+              <li style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+                {empresas[highestSalary.empresa]?.nombre ?? highestSalary.titulo} tiene la mayor compensación ofrecida
+              </li>
+            )}
+            {mostAdvanced && (
+              <li style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+                {empresas[mostAdvanced.empresa]?.nombre ?? mostAdvanced.titulo} está más avanzada en el proceso
+              </li>
+            )}
+            {ofertas.length >= 2 && (
+              <li style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+                Comparando {ofertas.length} ofertas — revisá el radar para comparar dimensiones clave
+              </li>
+            )}
           </ul>
         </div>
       </div>
@@ -124,7 +168,12 @@ function RadarChart({ ofertas, empresas }: { ofertas: Oferta[]; empresas: Record
   );
 }
 
-function TablaView({ ofertas, empresas }: { ofertas: Oferta[]; empresas: Record<string, import('./types').Empresa> }) {
+function TablaView({ ofertas, empresas, baselineBruto, baselineNeto }: {
+  ofertas: Oferta[];
+  empresas: Record<string, import('./types').Empresa>;
+  baselineBruto: number;
+  baselineNeto: number;
+}) {
   const rows = [
     { label: 'Salario bruto', getValue: (o: Oferta) => o.salarioBrutoOfrecido ? `${o.moneda} ${o.salarioBrutoOfrecido.toLocaleString()}` : '—' },
     { label: 'Salario neto', getValue: (o: Oferta) => o.salarioNetoOfrecido ? `${o.moneda} ${o.salarioNetoOfrecido.toLocaleString()}` : '—' },
@@ -133,8 +182,10 @@ function TablaView({ ofertas, empresas }: { ofertas: Oferta[]; empresas: Record<
     { label: 'País', getValue: (o: Oferta) => o.pais },
     { label: 'Stack', getValue: (o: Oferta) => o.tags.join(', ') },
     { label: 'Scoring', getValue: (o: Oferta) => `${o.scoring}/100` },
-    { label: 'Próxima fecha', getValue: (o: Oferta) => o.proximaFecha ?? '—' },
+    { label: 'Fecha de inicio', getValue: (o: Oferta) => o.fechaInicio ?? '—' },
   ];
+
+  const fmtBaseline = (val: number) => val > 0 ? `${val.toLocaleString()}` : '—';
 
   return (
     <div className="card" style={{ overflow: 'auto' }}>
@@ -153,12 +204,18 @@ function TablaView({ ofertas, empresas }: { ofertas: Oferta[]; empresas: Record<
             <tr key={row.label}>
               <td style={{ fontWeight: 600, color: 'var(--text-muted)' }}>{row.label}</td>
               <td style={{ color: 'var(--text-subtle)' }}>
-                {row.label === 'Salario bruto' ? 'USD 4.500' : row.label === 'Salario neto' ? 'USD 3.600' : '—'}
+                {row.label === 'Salario bruto'
+                  ? (baselineBruto > 0 ? fmtBaseline(baselineBruto) : '—')
+                  : row.label === 'Salario neto'
+                  ? (baselineNeto > 0 ? fmtBaseline(baselineNeto) : '—')
+                  : '—'}
               </td>
               {ofertas.map((o) => {
                 const val = row.getValue(o);
-                const isDelta = row.label === 'Salario bruto' && o.salarioBrutoOfrecido;
-                const delta = isDelta && o.salarioBrutoOfrecido ? Math.round(((o.salarioBrutoOfrecido - 4500) / 4500) * 100) : null;
+                const isDelta = row.label === 'Salario bruto' && o.salarioBrutoOfrecido && baselineBruto > 0;
+                const delta = isDelta && o.salarioBrutoOfrecido
+                  ? Math.round(((o.salarioBrutoOfrecido - baselineBruto) / baselineBruto) * 100)
+                  : null;
                 return (
                   <td key={o.id} style={{ fontFamily: row.label === 'Scoring' ? 'var(--font-mono)' : undefined }}>
                     {val}
@@ -182,7 +239,11 @@ function TablaView({ ofertas, empresas }: { ofertas: Oferta[]; empresas: Record<
   );
 }
 
-function CardsView({ ofertas, empresas }: { ofertas: Oferta[]; empresas: Record<string, import('./types').Empresa> }) {
+function CardsView({ ofertas, empresas, baselineBruto }: {
+  ofertas: Oferta[];
+  empresas: Record<string, import('./types').Empresa>;
+  baselineBruto: number;
+}) {
   const bestScorer = ofertas.reduce((best, o) => o.scoring > best.scoring ? o : best, ofertas[0]);
 
   return (
@@ -194,14 +255,15 @@ function CardsView({ ofertas, empresas }: { ofertas: Oferta[]; empresas: Record<
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'oklch(0.94 0.06 155)', color: 'oklch(0.50 0.19 155)', borderRadius: 20, padding: '3px 8px', fontSize: 11, fontWeight: 600, marginBottom: 8 }}>
               <Icon name="home" size={11} stroke="oklch(0.50 0.19 155)" /> Situación actual
             </div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Freelance</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Senior Software Engineer</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Trabajo actual</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Pretensión salarial</div>
           </div>
           <dl className="info-grid">
-            <dt>Salario bruto</dt><dd style={{ fontFamily: 'var(--font-mono)' }}>USD 4.500</dd>
-            <dt>Salario neto</dt><dd style={{ fontFamily: 'var(--font-mono)' }}>USD 3.600</dd>
-            <dt>Modalidad</dt><dd>Remoto</dd>
-            <dt>WLB</dt><dd>Alto</dd>
+            <dt>Salario bruto</dt>
+            <dd style={{ fontFamily: 'var(--font-mono)' }}>
+              {baselineBruto > 0 ? baselineBruto.toLocaleString() : '—'}
+            </dd>
+            <dt>Modalidad</dt><dd>—</dd>
           </dl>
         </div>
 
@@ -239,8 +301,8 @@ function CardsView({ ofertas, empresas }: { ofertas: Oferta[]; empresas: Record<
         <div>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'oklch(0.42 0.22 250)', marginBottom: 4 }}>Recomendación</div>
           <p style={{ fontSize: 13.5, color: 'oklch(0.42 0.22 250 / 0.8)', lineHeight: 1.6 }}>
-            <strong>Datadog</strong> es el mejor match con un score de {bestScorer.scoring}/100 y la mejor compensación.
-            Si valoras el stack técnico y el crecimiento, <strong>Microsoft</strong> es una excelente segunda opción.
+            <strong>{empresas[bestScorer.empresa]?.nombre ?? bestScorer.titulo}</strong> es el mejor match con un score de {bestScorer.scoring}/100
+            {bestScorer.salarioBrutoOfrecido ? ` y una oferta de ${bestScorer.moneda} ${bestScorer.salarioBrutoOfrecido.toLocaleString()}` : ''}.
           </p>
         </div>
       </div>
@@ -249,16 +311,36 @@ function CardsView({ ofertas, empresas }: { ofertas: Oferta[]; empresas: Record<
 }
 
 export function Comparar() {
-  const { ofertas, empresas } = useApp();
+  const { ofertas, empresas, perfil } = useApp();
   const [viewMode, setViewMode] = useState<'cards' | 'tabla' | 'radar'>('cards');
-  const compareOfertas = COMPARE_IDS.map((id) => ofertas.find((o) => o.id === id)).filter((o): o is Oferta => o !== undefined);
+  const [compareIds, setCompareIds] = useState<string[]>([]);
+
+  const baselineBruto = perfil?.pretensionBruta ?? 0;
+  const baselineNeto = perfil?.pretensionNeta ?? 0;
+
+  const toggleId = (id: string) => {
+    setCompareIds((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= MAX_COMPARE) return prev;
+      return [...prev, id];
+    });
+  };
+
+  const compareOfertas = useMemo(
+    () => compareIds.map((id) => ofertas.find((o) => o.id === id)).filter((o): o is Oferta => o !== undefined),
+    [compareIds, ofertas]
+  );
 
   return (
     <div className="page-content">
       <div className="page-header">
         <div>
           <h1 className="page-title">Comparar ofertas</h1>
-          <p className="page-subtitle">Comparando {compareOfertas.length} ofertas seleccionadas</p>
+          <p className="page-subtitle">
+            {compareOfertas.length >= 2
+              ? `Comparando ${compareOfertas.length} ofertas seleccionadas`
+              : 'Seleccioná al menos 2 ofertas para comparar'}
+          </p>
         </div>
         <div className="view-switcher">
           {(['cards', 'tabla', 'radar'] as const).map((m) => (
@@ -269,23 +351,89 @@ export function Comparar() {
         </div>
       </div>
 
-      <div className="filter-bar">
-        {compareOfertas.map((o) => (
-          <span key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: 'var(--surface-raised)', border: '1px solid var(--border)', borderRadius: 20, fontSize: 12, color: 'var(--text-muted)' }}>
-            <div style={{ width: 14, height: 14, borderRadius: 3, background: empresas[o.empresa]?.color ?? 'var(--surface-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 7, fontWeight: 700 }}>
-              {empresas[o.empresa]?.logo?.slice(0, 1)}
-            </div>
-            {empresas[o.empresa]?.nombre}
-          </span>
-        ))}
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: 'oklch(0.94 0.06 155)', border: '1px solid oklch(0.70 0.19 155)', borderRadius: 20, fontSize: 12, color: 'oklch(0.50 0.19 155)', fontWeight: 500 }}>
-          <Icon name="home" size={11} stroke="oklch(0.50 0.19 155)" /> Mi situación actual
-        </span>
+      {/* Offer selection panel */}
+      <div className="card" style={{ padding: 16, marginBottom: 16 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-subtle)', marginBottom: 10 }}>
+          Seleccioná las ofertas a comparar (máx. {MAX_COMPARE})
+        </div>
+        {ofertas.length === 0 ? (
+          <span style={{ fontSize: 13, color: 'var(--text-subtle)' }}>No hay ofertas disponibles.</span>
+        ) : (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {ofertas.map((o) => {
+              const selected = compareIds.includes(o.id);
+              const disabled = !selected && compareIds.length >= MAX_COMPARE;
+              return (
+                <button
+                  key={o.id}
+                  onClick={() => !disabled && toggleId(o.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '5px 10px',
+                    borderRadius: 20,
+                    border: selected ? '1.5px solid oklch(0.52 0.20 250)' : '1px solid var(--border)',
+                    background: selected ? 'var(--color-brand-light)' : 'var(--surface-raised)',
+                    color: selected ? 'oklch(0.52 0.20 250)' : 'var(--text-muted)',
+                    fontSize: 12,
+                    fontWeight: selected ? 600 : 400,
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                    opacity: disabled ? 0.45 : 1,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <div style={{
+                    width: 14, height: 14, borderRadius: 3,
+                    background: empresas[o.empresa]?.color ?? 'var(--surface-muted)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'white', fontSize: 7, fontWeight: 700,
+                  }}>
+                    {empresas[o.empresa]?.logo?.slice(0, 1)}
+                  </div>
+                  {o.titulo}
+                  {selected && (
+                    <Icon name="x" size={11} stroke="oklch(0.52 0.20 250)" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {viewMode === 'cards' && <CardsView ofertas={compareOfertas} empresas={empresas} />}
-      {viewMode === 'tabla' && <TablaView ofertas={compareOfertas} empresas={empresas} />}
-      {viewMode === 'radar' && (
+      {/* Active selections strip */}
+      {compareOfertas.length > 0 && (
+        <div className="filter-bar" style={{ marginBottom: 16 }}>
+          {compareOfertas.map((o) => (
+            <span key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: 'var(--surface-raised)', border: '1px solid var(--border)', borderRadius: 20, fontSize: 12, color: 'var(--text-muted)' }}>
+              <div style={{ width: 14, height: 14, borderRadius: 3, background: empresas[o.empresa]?.color ?? 'var(--surface-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 7, fontWeight: 700 }}>
+                {empresas[o.empresa]?.logo?.slice(0, 1)}
+              </div>
+              {empresas[o.empresa]?.nombre}
+            </span>
+          ))}
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: 'oklch(0.94 0.06 155)', border: '1px solid oklch(0.70 0.19 155)', borderRadius: 20, fontSize: 12, color: 'oklch(0.50 0.19 155)', fontWeight: 500 }}>
+            <Icon name="home" size={11} stroke="oklch(0.50 0.19 155)" /> Mi situación actual
+          </span>
+        </div>
+      )}
+
+      {/* Placeholder when fewer than 2 selected */}
+      {compareOfertas.length < 2 && (
+        <div className="card" style={{ padding: 48, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, color: 'var(--text-subtle)' }}>
+          <Icon name="radar" size={32} stroke="var(--text-subtle)" />
+          <span style={{ fontSize: 14 }}>Seleccioná al menos 2 ofertas para comparar</span>
+        </div>
+      )}
+
+      {compareOfertas.length >= 2 && viewMode === 'cards' && (
+        <CardsView ofertas={compareOfertas} empresas={empresas} baselineBruto={baselineBruto} />
+      )}
+      {compareOfertas.length >= 2 && viewMode === 'tabla' && (
+        <TablaView ofertas={compareOfertas} empresas={empresas} baselineBruto={baselineBruto} baselineNeto={baselineNeto} />
+      )}
+      {compareOfertas.length >= 2 && viewMode === 'radar' && (
         <div className="card" style={{ padding: 24 }}>
           <RadarChart ofertas={compareOfertas} empresas={empresas} />
         </div>
