@@ -475,7 +475,31 @@ function DetallesTab({ ofertaId }: { ofertaId: string }) {
         <div className="card">
           <div className="card-header"><span className="card-title">CV enviado</span></div>
           <div className="card-body" style={{ padding: 16 }}>
-            {oferta.cvEnviadoId ? (() => {
+            {/* Quick inline CV selector */}
+            <div style={{ marginBottom: oferta.cvEnviadoId ? 10 : 0 }}>
+              <select
+                className="form-input"
+                value={oferta.cvEnviadoId ?? ''}
+                onChange={async (e) => {
+                  const val = e.target.value || null;
+                  try {
+                    await linkCVToOferta(oferta.id, val);
+                    showToast(val ? 'CV vinculado' : 'CV desvinculado', 'success');
+                  } catch {
+                    showToast('Error al vincular el CV', 'warn');
+                  }
+                }}
+                style={{ width: '100%' }}
+              >
+                <option value="">Sin CV</option>
+                {Object.values(cvs).map((cv) => (
+                  <option key={cv.id} value={cv.id}>
+                    {cv.nombre}{cv.version ? ` v${cv.version}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {oferta.cvEnviadoId && (() => {
               const cv = cvs[oferta.cvEnviadoId];
               const handleVerCV = async () => {
                 if (!cv) return;
@@ -486,27 +510,22 @@ function DetallesTab({ ofertaId }: { ofertaId: string }) {
                   showToast('Error al obtener el CV', 'warn');
                 }
               };
-              return (
+              return cv ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Icon name="file" size={16} stroke="oklch(0.52 0.20 250)" />
                   <span style={{ fontSize: 13, color: 'var(--text)', flex: 1 }}>
-                    {cv ? cv.nombre : oferta.cvEnviadoId}
-                    {cv?.version ? ` (${cv.version})` : ''}
+                    {cv.nombre}{cv.version ? ` v${cv.version}` : ''}
                   </span>
-                  {cv && (
-                    <button
-                      className="btn btn-ghost"
-                      style={{ padding: '3px 8px', fontSize: 12 }}
-                      onClick={handleVerCV}
-                    >
-                      <Icon name="link" size={12} stroke="oklch(0.52 0.20 250)" /> Ver
-                    </button>
-                  )}
+                  <button
+                    className="btn btn-ghost"
+                    style={{ padding: '3px 8px', fontSize: 12 }}
+                    onClick={handleVerCV}
+                  >
+                    <Icon name="link" size={12} stroke="oklch(0.52 0.20 250)" /> Ver
+                  </button>
                 </div>
-              );
-            })() : (
-              <span style={{ fontSize: 13, color: 'var(--text-subtle)' }}>No enviado aún</span>
-            )}
+              ) : null;
+            })()}
           </div>
         </div>
 
@@ -1610,7 +1629,7 @@ function AdjuntosTab({ ofertaId }: { ofertaId: string }) {
 }
 
 export function OfertaDetail() {
-  const { ofertaId, ofertas, empresas, setPage, showToast, moveOferta, cvs } = useApp();
+  const { ofertaId, ofertas, empresas, setPage, showToast, moveOferta, cvs, linkCVToOferta } = useApp();
   const isMobile = useIsMobile();
   const oferta = ofertas.find((o) => o.id === ofertaId);
   const [tab, setTab] = useState<'detalles' | 'roadmap' | 'contactos' | 'adjuntos' | 'scoring'>('detalles');
@@ -1705,9 +1724,11 @@ export function OfertaDetail() {
         cvEnviadoId: editFields.cvEnviadoId || null,
       };
       await dbUpdateOferta(oferta.id, patch);
-      // Optimistic update in context — we update the offers list directly
-      // The store does not expose an updateOferta action, so we rely on the
-      // moveOferta pattern: mutate and let the next full reload reconcile.
+      // Optimistic local state update via store action (handles cvEnviadoId + ofertasUsadas)
+      const newCvId = editFields.cvEnviadoId || null;
+      if (newCvId !== (oferta.cvEnviadoId ?? null)) {
+        await linkCVToOferta(oferta.id, newCvId);
+      }
       showToast('Oferta actualizada', 'success');
       setEditMode(false);
     } catch {

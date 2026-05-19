@@ -10,10 +10,16 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
     optimizeDeps: {
+      force: true,
       include: ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime'],
     },
     resolve: {
       dedupe: ['react', 'react-dom', 'react/jsx-runtime'],
+    },
+    server: {
+      hmr: {
+        clientPort: 4321,
+      },
     },
   },
 });

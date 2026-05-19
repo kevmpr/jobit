@@ -70,6 +70,7 @@ import {
   updateEducacion as dbUpdateEducacion,
   deleteEducacion as dbDeleteEducacion,
   uploadAvatar as dbUploadAvatar,
+  linkCVToOferta as dbLinkCVToOferta,
 } from '../lib/db';
 import { supabase } from '../lib/supabase';
 import { Sidebar, Topbar } from './jobit/Shell';
@@ -195,8 +196,14 @@ export default function JobitApp() {
       setOfertas(enrichedOfertas);
       setEmpresas(empresasMap);
       setContactos(contactosMap);
+      // Compute ofertasUsadas: count how many enrichedOfertas reference each CV
+      const cvUsageCount: Record<string, number> = {};
+      for (const o of enrichedOfertas) {
+        const id = o.cvEnviadoId ?? o.cvEnviado;
+        if (id) cvUsageCount[id] = (cvUsageCount[id] ?? 0) + 1;
+      }
       const cvsMap: Record<string, CvItem> = {};
-      for (const cv of cvsData) cvsMap[cv.id] = cv;
+      for (const cv of cvsData) cvsMap[cv.id] = { ...cv, ofertasUsadas: cvUsageCount[cv.id] ?? 0 };
       setCvs(cvsMap);
       setPerfil(perfilData);
       setActividadLog(actividadData);
@@ -426,6 +433,39 @@ export default function JobitApp() {
     });
   }, []);
 
+  const linkCVToOferta = useCallback(async (ofertaId: string, cvId: string | null) => {
+    // Optimistic update — reflect the change immediately in local state
+    setOfertas((prev) => prev.map((o) =>
+      o.id === ofertaId
+        ? { ...o, cvEnviadoId: cvId, cvEnviado: cvId, actualizadoEn: new Date().toISOString().slice(0, 10) }
+        : o
+    ));
+    try {
+      await dbLinkCVToOferta(ofertaId, cvId);
+      // Recompute ofertasUsadas from updated offers state
+      setOfertas((currentOfertas) => {
+        const cvUsageCount: Record<string, number> = {};
+        for (const o of currentOfertas) {
+          const id = o.cvEnviadoId ?? o.cvEnviado;
+          if (id) cvUsageCount[id] = (cvUsageCount[id] ?? 0) + 1;
+        }
+        setCvs((prevCvs) => {
+          const next = { ...prevCvs };
+          for (const id of Object.keys(next)) {
+            next[id] = { ...next[id], ofertasUsadas: cvUsageCount[id] ?? 0 };
+          }
+          return next;
+        });
+        return currentOfertas;
+      });
+    } catch {
+      // Revert on error
+      const fresh = await fetchOfertas();
+      setOfertas(fresh.map((o) => ({ ...o, contactos: ofertaContactos[o.id] ?? [] })));
+      showToast('Error al vincular el CV', 'warn');
+    }
+  }, [ofertaContactos, showToast]);
+
   const updatePerfil = useCallback(async (data: Partial<PerfilUsuario>) => {
     await dbUpdatePerfil(data);
     setPerfil((prev) => prev ? { ...prev, ...data } : prev);
@@ -643,6 +683,7 @@ export default function JobitApp() {
     updateCaso: (id: string, data: Partial<Caso>) => Promise<void>;
     deleteCaso: (id: string) => Promise<void>;
     currentUser: User | null;
+    linkCVToOferta: (ofertaId: string, cvId: string | null) => Promise<void>;
     refreshAll: () => Promise<void>;
     refreshing: boolean;
     setSidebarOpen: (v: boolean) => void;
@@ -667,6 +708,7 @@ export default function JobitApp() {
     updateAvatar,
     fetchCasos, addCaso, updateCaso, deleteCaso,
     currentUser,
+    linkCVToOferta,
     refreshAll,
     refreshing,
     sidebarOpen,

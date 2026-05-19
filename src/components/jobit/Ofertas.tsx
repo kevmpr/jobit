@@ -45,7 +45,8 @@ function LogoBubble({ empresa, size = 32 }: { empresa: string; size?: number }) 
 }
 
 function OfertaCard({ oferta, onClick }: { oferta: Oferta; onClick: () => void }) {
-  const { empresas } = useApp();
+  const { empresas, cvs } = useApp();
+  const cvLinkedCard = oferta.cvEnviadoId ? (cvs[oferta.cvEnviadoId] ?? null) : null;
   const totalPasos = oferta.pasos?.length ?? 0;
   const completados = oferta.pasos?.filter(p => p.estado === 'completado').length ?? 0;
   const pct = totalPasos > 0 ? (completados / totalPasos) * 100 : 0;
@@ -91,6 +92,23 @@ function OfertaCard({ oferta, onClick }: { oferta: Oferta; onClick: () => void }
         {oferta.fechaInicio && (
           <span className="card-date">{formatDate(oferta.fechaInicio)}</span>
         )}
+        {cvLinkedCard && (
+          <span
+            title={`CV: ${cvLinkedCard.nombre}${cvLinkedCard.version ? ` v${cvLinkedCard.version}` : ''}`}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 3,
+              fontSize: 10.5, padding: '1px 6px', borderRadius: 20,
+              background: 'var(--surface-muted)',
+              color: 'var(--text-muted)', border: '1px solid var(--border)',
+              marginLeft: 'auto', flexShrink: 0,
+              overflow: 'hidden', maxWidth: 100,
+            }}
+          >
+            📄 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {cvLinkedCard.nombre}{cvLinkedCard.version ? ` v${cvLinkedCard.version}` : ''}
+            </span>
+          </span>
+        )}
       </div>
     </div>
   );
@@ -106,8 +124,8 @@ function OfertaPreviewPanel({ oferta, onClose }: { oferta: Oferta; onClose: () =
   const scoreVal = scoringAverage(oferta.scoring);
   const linkedNotas = notas.filter((n) => n.ofertaId === oferta.id);
   const linkedContactos = (oferta.contactos ?? []).map((cid) => contactos[cid]).filter(Boolean);
-  const cvLinked = oferta.cvEnviado
-    ? Object.values(cvs).find((c) => c.nombre === oferta.cvEnviado) ?? null
+  const cvLinked = oferta.cvEnviadoId
+    ? (cvs[oferta.cvEnviadoId] ?? null)
     : null;
   const totalPasos = oferta.pasos?.length ?? 0;
   const completados = oferta.pasos?.filter(p => p.estado === 'completado').length ?? 0;
@@ -319,7 +337,7 @@ function OfertaPreviewPanel({ oferta, onClose }: { oferta: Oferta; onClose: () =
         )}
 
         {/* ── CV enviado ── */}
-        {oferta.cvEnviado && (
+        {oferta.cvEnviadoId && (
           <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
             <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
               CV Enviado
@@ -331,10 +349,10 @@ function OfertaPreviewPanel({ oferta, onClose }: { oferta: Oferta; onClose: () =
             }}>
               <span>📄</span>
               <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {cvLinked?.nombre ?? oferta.cvEnviado}
+                {cvLinked?.nombre ?? oferta.cvEnviadoId}
               </span>
               {cvLinked?.version && (
-                <span style={{ fontSize: 10.5, color: 'var(--text-subtle)' }}>{cvLinked.version}</span>
+                <span style={{ fontSize: 10.5, color: 'var(--text-subtle)' }}>v{cvLinked.version}</span>
               )}
             </div>
           </div>
@@ -385,10 +403,11 @@ function KanbanCard({
   const totalPasos = oferta.pasos?.length ?? 0;
   const completados = oferta.pasos?.filter(p => p.estado === 'completado').length ?? 0;
   const pct = totalPasos > 0 ? (completados / totalPasos) * 100 : 0;
-  const { setPage, empresas } = useApp();
+  const { setPage, empresas, cvs } = useApp();
   const salario = formatSalario(oferta.moneda, oferta.salarioBrutoOfrecido);
   const scoreVal = scoringAverage(oferta.scoring);
   const location = oferta.ciudad && oferta.ciudad !== 'Remote' ? oferta.ciudad : oferta.pais;
+  const cvLinkedKanban = oferta.cvEnviadoId ? (cvs[oferta.cvEnviadoId] ?? null) : null;
 
   return (
     <div
@@ -508,8 +527,13 @@ function KanbanCard({
         )}
 
         {/* CV linked */}
-        {oferta.cvEnviado && (
-          <span title={oferta.cvEnviado} style={{ fontSize: 12, flexShrink: 0 }}>📄</span>
+        {cvLinkedKanban && (
+          <span
+            title={`CV: ${cvLinkedKanban.nombre}${cvLinkedKanban.version ? ` v${cvLinkedKanban.version}` : ''}`}
+            style={{ fontSize: 12, flexShrink: 0 }}
+          >
+            📄
+          </span>
         )}
       </div>
     </div>
@@ -592,7 +616,7 @@ function KanbanView({ search }: { search: string }) {
 }
 
 function ListView({ search }: { search: string }) {
-  const { ofertas, setPage, empresas } = useApp();
+  const { ofertas, setPage, empresas, cvs } = useApp();
   const visibleOfertas = search
     ? ofertas.filter(
         (o) =>
@@ -609,6 +633,7 @@ function ListView({ search }: { search: string }) {
             <th>Estado</th>
             <th>Salario</th>
             <th>Modalidad</th>
+            <th>CV</th>
             <th>Paso</th>
             <th>Actualizado</th>
           </tr>
@@ -630,6 +655,16 @@ function ListView({ search }: { search: string }) {
                 {o.salarioBrutoOfrecido ? `${o.moneda} ${o.salarioBrutoOfrecido.toLocaleString()}` : '—'}
               </td>
               <td style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'capitalize' }}>{o.modalidad}</td>
+              <td style={{ fontSize: 12 }}>
+                {o.cvEnviadoId ? (() => {
+                  const cv = cvs[o.cvEnviadoId];
+                  return cv
+                    ? <span title={`${cv.nombre}${cv.version ? ` v${cv.version}` : ''}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                        📄 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 100 }}>{cv.nombre}{cv.version ? ` v${cv.version}` : ''}</span>
+                      </span>
+                    : <span style={{ color: 'var(--text-subtle)' }}>📄</span>;
+                })() : <span style={{ color: 'var(--text-subtle)' }}>—</span>}
+              </td>
               <td style={{ fontSize: 12 }}>{(o.pasos?.filter(p => p.estado === 'completado').length ?? 0)}/{(o.pasos?.length ?? 0)}</td>
               <td style={{ fontSize: 12, color: 'var(--text-subtle)' }}>{formatDate(o.actualizadoEn)}</td>
             </tr>

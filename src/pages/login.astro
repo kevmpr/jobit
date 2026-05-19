@@ -1,62 +1,634 @@
----
-import Layout from '../layouts/Layout.astro';
----
-<Layout title="Jobit — Iniciar sesión">
-  <div class="login-wrap">
-    <div class="login-card">
-      <div class="login-brand">
-        <div class="login-title">Jobit</div>
-        <div class="login-sub">Tu pipeline de búsqueda laboral</div>
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Jobit — Iniciar sesión</title>
+    <meta name="description" content="Centralizá tus postulaciones, contactos y logros en un solo lugar. Gestioná tu búsqueda laboral con criterio." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Prevent flash of wrong theme -->
+    <script>
+      (function () {
+        var saved = localStorage.getItem('jobit-theme');
+        if (saved === 'dark') {
+          document.documentElement.classList.add('dark');
+        }
+        // else: no class = light mode (default)
+      })();
+    </script>
+  </head>
+  <body>
+
+    <div class="layout">
+
+      <!-- ===== LEFT PANEL ===== -->
+      <div class="left-panel">
+        <!-- Stars canvas (dark mode only) -->
+        <canvas id="stars-canvas"></canvas>
+        <!-- Grid background (light mode only) -->
+        <div class="grid-bg"></div>
+
+        <div class="left-content">
+          <!-- Brand mark -->
+          <div class="brand">
+            <div class="brand-mark">J</div>
+            <span class="brand-name">Jobit</span>
+          </div>
+
+          <!-- Headline -->
+          <h1 class="headline">Tu búsqueda laboral,<br />gestionada con criterio.</h1>
+
+          <!-- Subtitle -->
+          <p class="subheadline">
+            Centralizá tus postulaciones, contactos y logros en un solo lugar.
+            Tomá decisiones con datos, no con intuición.
+          </p>
+
+          <!-- Feature bullets -->
+          <ul class="features" aria-label="Funcionalidades principales">
+            <li class="feature-item">
+              <span class="feature-dot" aria-hidden="true"></span>
+              <span>Seguimiento completo de ofertas y procesos</span>
+            </li>
+            <li class="feature-item">
+              <span class="feature-dot" aria-hidden="true"></span>
+              <span>Gestión de contactos y empresas clave</span>
+            </li>
+            <li class="feature-item">
+              <span class="feature-dot" aria-hidden="true"></span>
+              <span>Exportá tu CV y casos de logros en PDF</span>
+            </li>
+            <li class="feature-item">
+              <span class="feature-dot" aria-hidden="true"></span>
+              <span>Comparativa de propuestas en tiempo real</span>
+            </li>
+          </ul>
+        </div>
       </div>
-      <a href="/api/auth/login" class="login-btn">
-        <svg width="20" height="20" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
-          <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
-          <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
-          <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
-        </svg>
-        Iniciar sesión con Microsoft
-      </a>
+
+      <!-- ===== RIGHT PANEL ===== -->
+      <div class="right-panel">
+        <div class="login-card">
+          <div class="card-header">
+            <h2 class="card-title">Iniciar sesión</h2>
+            <p class="card-subtitle">Accedé con tu cuenta de Microsoft para continuar.</p>
+          </div>
+
+          <a href="/api/auth/login" class="ms-btn">
+            <svg width="20" height="20" viewBox="0 0 21 21" aria-hidden="true" focusable="false">
+              <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+              <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+              <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+              <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+            </svg>
+            <span>Continuar con Microsoft</span>
+          </a>
+
+          <p class="legal-text">
+            Al continuar, aceptás los términos de uso y la política de privacidad de Jobit.
+          </p>
+
+          <div class="card-footer">
+            <button id="theme-toggle" class="theme-toggle" type="button" title="Cambiar tema" aria-label="Cambiar tema"></button>
+          </div>
+        </div>
+      </div>
+
     </div>
-  </div>
-</Layout>
+
+  </body>
+</html>
 
 <style>
-  .login-wrap {
-    min-height: 100vh;
-    background: #0a0f1e;
+  /* ========================
+     Reset & Base
+  ======================== */
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* ========================
+     CSS Variables — Light (default)
+  ======================== */
+  :root {
+    --bg: #f8f8fc;
+    --surface: #ffffff;
+    --surface-muted: #f1f1f7;
+    --border: #e4e4ed;
+    --text: #0f0f14;
+    --text-muted: #6b6b80;
+    --text-subtle: #9999b0;
+    --color-brand: #6366f1;
+    --color-brand-soft: #ede9fe;
+    --color-brand-hover: #4f46e5;
+
+    --left-bg: #f0f0f8;
+    --card-shadow: 0 4px 32px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
+    --toggle-bg: rgba(0, 0, 0, 0.06);
+    --toggle-color: #6b6b80;
+    --toggle-hover: rgba(0, 0, 0, 0.1);
+  }
+
+  /* ========================
+     CSS Variables — Dark
+  ======================== */
+  html.dark {
+    --bg: #0c0c10;
+    --surface: #141418;
+    --surface-muted: #1c1c22;
+    --border: #2a2a35;
+    --text: #f0f0f8;
+    --text-muted: #9999b0;
+    --text-subtle: #6b6b80;
+    --color-brand: #818cf8;
+    --color-brand-soft: #1e1b4b;
+    --color-brand-hover: #6366f1;
+
+    --left-bg: #0a0a0f;
+    --card-shadow: 0 8px 48px rgba(0, 0, 0, 0.5), 0 1px 4px rgba(0, 0, 0, 0.3);
+    --toggle-bg: rgba(255, 255, 255, 0.07);
+    --toggle-color: #9999b0;
+    --toggle-hover: rgba(255, 255, 255, 0.12);
+  }
+
+  /* ========================
+     Body & Layout
+  ======================== */
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 55fr 45fr;
+    height: 100vh;
+    min-height: 0;
+  }
+
+  /* ========================
+     Left Panel
+  ======================== */
+  .left-panel {
+    position: relative;
+    background: var(--left-bg);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Geist', system-ui, sans-serif;
+    overflow: hidden;
   }
+
+  /* Light mode: dot grid pattern */
+  .grid-bg {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: radial-gradient(circle, rgba(99, 102, 241, 0.18) 1px, transparent 1px);
+    background-size: 28px 28px;
+    opacity: 1;
+    z-index: 0;
+  }
+
+  html.dark .grid-bg {
+    display: none;
+  }
+
+  /* Dark mode: subtle radial glow */
+  html.dark .left-panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 70% 60% at 40% 50%, rgba(99, 102, 241, 0.12) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Stars canvas */
+  #stars-canvas {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    display: none;
+  }
+
+  html.dark #stars-canvas {
+    display: block;
+  }
+
+  /* Content above backgrounds */
+  .left-content {
+    position: relative;
+    z-index: 1;
+    padding: 56px 64px;
+    max-width: 560px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+  }
+
+  /* ========================
+     Brand Mark
+  ======================== */
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .brand-mark {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.5px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 12px rgba(99, 102, 241, 0.35);
+  }
+
+  .brand-name {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.4px;
+  }
+
+  /* ========================
+     Headline
+  ======================== */
+  .headline {
+    font-size: clamp(28px, 3.2vw, 42px);
+    font-weight: 800;
+    letter-spacing: -1.5px;
+    line-height: 1.12;
+    color: var(--text);
+  }
+
+  html.dark .headline {
+    background: linear-gradient(165deg, #ffffff 0%, rgba(240, 240, 248, 0.72) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ========================
+     Subheadline
+  ======================== */
+  .subheadline {
+    font-size: 16px;
+    line-height: 1.65;
+    color: var(--text-muted);
+    font-weight: 400;
+    max-width: 420px;
+  }
+
+  /* ========================
+     Feature Bullets
+  ======================== */
+  .features {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .feature-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+
+  .feature-dot {
+    flex-shrink: 0;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--color-brand);
+    box-shadow: 0 0 0 3px var(--color-brand-soft);
+  }
+
+  /* ========================
+     Right Panel
+  ======================== */
+  .right-panel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    padding: 32px 40px;
+  }
+
+  /* ========================
+     Login Card
+  ======================== */
   .login-card {
-    text-align: center;
-    padding: 48px;
-    border-radius: 16px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08);
-    max-width: 400px;
     width: 100%;
+    max-width: 400px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 40px;
+    box-shadow: var(--card-shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
   }
-  .login-brand { margin-bottom: 32px; }
-  .login-title { font-size: 32px; font-weight: 700; color: white; margin-bottom: 8px; }
-  .login-sub { font-size: 14px; color: rgba(255,255,255,0.5); }
-  .login-btn {
+
+  .card-header {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .card-title {
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.8px;
+    color: var(--text);
+    line-height: 1.2;
+  }
+
+  .card-subtitle {
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.55;
+  }
+
+  /* ========================
+     Microsoft Login Button
+  ======================== */
+  .ms-btn {
+    width: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 10px;
-    width: 100%;
-    padding: 12px 24px;
-    background: oklch(0.52 0.20 250);
-    color: white;
-    text-decoration: none;
-    border-radius: 8px;
+    padding: 13px 20px;
+    background: var(--color-brand);
+    color: #ffffff;
+    border: none;
+    border-radius: 10px;
     font-size: 15px;
     font-weight: 600;
+    font-family: inherit;
+    letter-spacing: -0.1px;
     cursor: pointer;
-    transition: opacity 0.15s;
+    transition: background 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease;
+    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.28);
+    white-space: nowrap;
+    user-select: none;
+    text-decoration: none;
   }
-  .login-btn:hover { opacity: 0.9; }
+
+  .ms-btn:hover:not(:disabled) {
+    background: var(--color-brand-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 28px rgba(99, 102, 241, 0.38);
+  }
+
+  .ms-btn:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.22);
+  }
+
+  .ms-btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+  }
+
+  /* ========================
+     Legal Text
+  ======================== */
+  .legal-text {
+    font-size: 12px;
+    color: var(--text-subtle);
+    line-height: 1.6;
+    text-align: center;
+  }
+
+  /* ========================
+     Card Footer / Theme Toggle
+  ======================== */
+  .card-footer {
+    display: flex;
+    justify-content: center;
+    padding-top: 4px;
+  }
+
+  .theme-toggle {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    border: 1px solid var(--border);
+    background: var(--toggle-bg);
+    color: var(--toggle-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.18s ease, transform 0.15s ease, border-color 0.18s ease;
+  }
+
+  .theme-toggle:hover {
+    background: var(--toggle-hover);
+    transform: scale(1.06);
+  }
+
+  .theme-toggle svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+
+  /* ========================
+     Mobile (≤ 768px)
+  ======================== */
+  @media (max-width: 768px) {
+    html, body {
+      overflow: auto;
+    }
+
+    .layout {
+      display: flex;
+      flex-direction: column;
+      height: auto;
+      min-height: 100vh;
+    }
+
+    .left-panel {
+      padding: 0;
+      min-height: auto;
+    }
+
+    .left-content {
+      padding: 40px 24px 32px;
+      gap: 16px;
+      max-width: 100%;
+    }
+
+    /* Hide feature bullets on mobile */
+    .features {
+      display: none;
+    }
+
+    /* Hide subheadline on mobile */
+    .subheadline {
+      display: none;
+    }
+
+    .headline {
+      font-size: clamp(24px, 6vw, 32px);
+      letter-spacing: -1px;
+    }
+
+    .right-panel {
+      flex: 1;
+      padding: 24px 16px 40px;
+      align-items: flex-start;
+    }
+
+    .login-card {
+      max-width: 100%;
+      padding: 32px 24px;
+      border-radius: 16px;
+    }
+  }
 </style>
+
+<script>
+  // ========================
+  // Theme System
+  // ========================
+  const sunIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="5"/>
+    <line x1="12" y1="1" x2="12" y2="3"/>
+    <line x1="12" y1="21" x2="12" y2="23"/>
+    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+    <line x1="1" y1="12" x2="3" y2="12"/>
+    <line x1="21" y1="12" x2="23" y2="12"/>
+    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+  </svg>`;
+
+  const moonIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+  </svg>`;
+
+  const html = document.documentElement;
+  const toggleBtn = document.getElementById('theme-toggle');
+
+  function isDark() {
+    return html.classList.contains('dark');
+  }
+
+  function applyTheme(dark) {
+    html.classList.toggle('dark', dark);
+    if (toggleBtn) {
+      toggleBtn.innerHTML = dark ? sunIcon : moonIcon;
+    }
+    updateStars(dark);
+  }
+
+  toggleBtn?.addEventListener('click', () => {
+    const next = !isDark();
+    applyTheme(next);
+    localStorage.setItem('jobit-theme', next ? 'dark' : 'light');
+  });
+
+  // Apply initial icon (theme class already set inline in <head>)
+  applyTheme(isDark());
+
+  // ========================
+  // Stars Animation (dark mode)
+  // ========================
+  let animationId = null;
+
+  function updateStars(dark) {
+    const canvas = document.getElementById('stars-canvas');
+    if (!canvas) return;
+
+    if (dark) {
+      if (!animationId) {
+        startStars(canvas);
+      }
+    } else {
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+  }
+
+  function startStars(canvas) {
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+
+    function resize() {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+      spawnStars();
+    }
+
+    function spawnStars() {
+      const count = Math.floor(80 + Math.random() * 40); // 80–120
+      stars = Array.from({ length: count }, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: Math.random() * 1.3 + 0.3,
+        vx: (Math.random() - 0.5) * 0.22,
+        vy: (Math.random() - 0.5) * 0.22,
+        o: Math.random() * 0.55 + 0.2,
+      }));
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (const s of stars) {
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,255,255,${s.o})`;
+        ctx.fill();
+        s.x += s.vx;
+        s.y += s.vy;
+        if (s.x < 0) s.x = canvas.width;
+        else if (s.x > canvas.width) s.x = 0;
+        if (s.y < 0) s.y = canvas.height;
+        else if (s.y > canvas.height) s.y = 0;
+      }
+      animationId = requestAnimationFrame(draw);
+    }
+
+    const ro = new ResizeObserver(() => resize());
+    ro.observe(canvas.parentElement);
+    resize();
+    draw();
+  }
+
+  // Login: handled by <a href="/api/auth/login"> — no JS needed.
+</script>

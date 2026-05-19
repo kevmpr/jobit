@@ -66,6 +66,7 @@ export interface AppActions {
   addCaso: (data: Partial<Caso>) => Promise<void>;
   updateCaso: (id: string, data: Partial<Caso>) => Promise<void>;
   deleteCaso: (id: string) => Promise<void>;
+  linkCVToOferta: (ofertaId: string, cvId: string | null) => Promise<void>;
   refreshAll: () => Promise<void>;
   refreshing: boolean;
   setSidebarOpen: (v: boolean) => void;
