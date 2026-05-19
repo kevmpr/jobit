@@ -14,9 +14,12 @@ export const GET: APIRoute = async ({ request, cookies, redirect }) => {
         },
         setAll(cookiesToSet) {
           console.log('[login] setting cookies:', cookiesToSet.map(c => c.name).join(', '));
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookies.set(name, value, options)
-          );
+          cookiesToSet.forEach(({ name, value, options }) => {
+            // Remove httpOnly so the browser Supabase client (createBrowserClient)
+            // can read the session cookies via document.cookie and stay authenticated.
+            const { httpOnly: _httpOnly, ...browserReadableOptions } = options ?? {};
+            cookies.set(name, value, { ...browserReadableOptions, httpOnly: false });
+          });
         },
       },
     }
